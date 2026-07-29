@@ -4,16 +4,13 @@
         string creator = "MuJoCo USD Converter v0.2.0"
     }
     defaultPrim = "wheeled_legged_robot"
-    doc = """Generated from Composed Stage of root layer /tmp/tmpr9hxebm7/wheeled_legged_robot.usdc
+    doc = """Generated from Composed Stage of root layer /tmp/tmps__jrbmd/wheeled_legged_robot.usdc
 
 
-Generated from Composed Stage of root layer /tmp/mjcf_import_wheeled_robot_qytu37d5/usdex_wheeled_robot/wheeled_legged_robot.usdc
+Generated from Composed Stage of root layer /tmp/mjcf_import_wheeled_robot_k4t8x46d/usdex_wheeled_robot/wheeled_legged_robot.usdc
 
 
-Generated from Composed Stage of root layer /tmp/mjcf_import_wheeled_robot_qytu37d5/temp_wheeled_robot/wheeled_robot.usd
-
-
-Generated from Composed Stage of root layer /home/mage/projects/wheeled_legged_rl/asset/usd/wheeled_robot/payloads/base.usd
+Generated from Composed Stage of root layer /tmp/mjcf_import_wheeled_robot_k4t8x46d/temp_wheeled_robot/wheeled_robot.usd
 """
     kilogramsPerUnit = 1
     metersPerUnit = 1
@@ -27,12 +24,6 @@ over "wheeled_legged_robot"
 {
     over "Geometry"
     {
-        over "floor" (
-            prepend apiSchemas = ["MjcCollisionAPI"]
-        )
-        {
-        }
-
         over "base_link"
         {
             over "base_link_collision" (
@@ -283,9 +274,6 @@ over "wheeled_legged_robot"
 
     over "Materials"
     {
-        over "matplane"
-        {
-        }
     }
 }
 
