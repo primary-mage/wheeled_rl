@@ -4,13 +4,13 @@
         string creator = "MuJoCo USD Converter v0.2.0"
     }
     defaultPrim = "wheeled_legged_robot"
-    doc = """Generated from Composed Stage of root layer /tmp/tmps__jrbmd/wheeled_legged_robot.usdc
+    doc = """Generated from Composed Stage of root layer /tmp/tmp7hsoxo5v/wheeled_legged_robot.usdc
 
 
-Generated from Composed Stage of root layer /tmp/mjcf_import_wheeled_robot_k4t8x46d/usdex_wheeled_robot/wheeled_legged_robot.usdc
+Generated from Composed Stage of root layer /tmp/mjcf_import_wheeled_robot_tdtqn7ne/usdex_wheeled_robot/wheeled_legged_robot.usdc
 
 
-Generated from Composed Stage of root layer /tmp/mjcf_import_wheeled_robot_k4t8x46d/temp_wheeled_robot/wheeled_robot.usd
+Generated from Composed Stage of root layer /tmp/mjcf_import_wheeled_robot_tdtqn7ne/temp_wheeled_robot/wheeled_robot.usd
 """
     kilogramsPerUnit = 1
     metersPerUnit = 1
@@ -28,7 +28,7 @@ def Xform "wheeled_legged_robot" (
     kind = "component"
 )
 {
-    float3[] extentsHint = [(-0.17069937, -0.06250046, 0.117701694), (0.17069937, 0.06250068, 0.52), (3.4028235e38, 3.4028235e38, 3.4028235e38), (-3.4028235e38, -3.4028235e38, -3.4028235e38), (3.4028235e38, 3.4028235e38, 3.4028235e38), (-3.4028235e38, -3.4028235e38, -3.4028235e38), (-0.17704938, -0.062018964, 0.11674929), (0.17704938, 0.06298224, 0.525)]
+    float3[] extentsHint = [(-0.062500454, -0.17070004, 0.11770192), (0.06250046, 0.1707, 0.52), (3.4028235e38, 3.4028235e38, 3.4028235e38), (-3.4028235e38, -3.4028235e38, -3.4028235e38), (3.4028235e38, 3.4028235e38, 3.4028235e38), (-3.4028235e38, -3.4028235e38, -3.4028235e38), (-0.06201892, -0.17705004, 0.11674954), (0.062982, 0.17705, 0.525)]
     custom rel isaac:physics:robotJoints
     custom rel isaac:physics:robotLinks
     custom token isaac:robotType = "Default"
@@ -50,7 +50,7 @@ def Xform "wheeled_legged_robot" (
                 prepend references = @./instances.usda@</Instances/base_link_visual>
             )
             {
-                quatd xformOp:orient = (1, 0, 0, 0)
+                quatd xformOp:orient = (0.7071068287, 0, 0, -0.7071067095)
                 double3 xformOp:scale = (1, 1, 1)
                 double3 xformOp:translate = (0, 0, 0)
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
@@ -73,7 +73,7 @@ def Xform "wheeled_legged_robot" (
                 uniform token purpose = "guide"
                 double size = 2
                 quatf xformOp:orient = (1, 0, 0, 0)
-                float3 xformOp:scale = (0.138, 0.053, 0.025)
+                float3 xformOp:scale = (0.053, 0.138, 0.025)
                 double3 xformOp:translate = (0, 0, 0)
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
             }
@@ -82,9 +82,9 @@ def Xform "wheeled_legged_robot" (
                 prepend apiSchemas = ["IsaacLinkAPI"]
             )
             {
-                quatf xformOp:orient = (-0.499998, -0.5, 0.500002, 0.5)
+                quatf xformOp:orient = (-1.6081226e-16, -2.2993472e-17, 0.70710677, 0.70710677)
                 float3 xformOp:scale = (1, 1, 1)
-                double3 xformOp:translate = (-0.1148, 0, -0.04075)
+                double3 xformOp:translate = (0, 0.1148, -0.04075)
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
 
                 def Xform "left_leg_visual" (
@@ -220,9 +220,9 @@ def Xform "wheeled_legged_robot" (
                 prepend apiSchemas = ["IsaacLinkAPI"]
             )
             {
-                quatf xformOp:orient = (0.499998, 0.5, 0.500002, 0.5)
+                quatf xformOp:orient = (0.7071068, 0.7071067, 0, 0)
                 float3 xformOp:scale = (1, 1, 1)
-                double3 xformOp:translate = (0.1148, 0, -0.04075)
+                double3 xformOp:translate = (0, -0.1148, -0.04075)
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
 
                 def Xform "right_leg_visual" (

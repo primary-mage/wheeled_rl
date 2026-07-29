@@ -6,6 +6,15 @@ from isaaclab.app import AppLauncher
 
 
 DEFAULT_USD = "/home/mage/projects/wheeled_legged_rl/asset/usd/wheeled_robot/wheeled_robot.usda"
+NOMINAL_HEIGHT = 0.270
+NOMINAL_JOINT_POS = {
+    "servo2": 0.9,
+    "servo1": -1.9,
+    "servo4": 0.9,
+    "servo3": -1.9,
+    "wheel1": 0.0,
+    "wheel2": 0.0,
+}
 
 parser = argparse.ArgumentParser(description="Minimal control test for wheeled_robot.usda.")
 parser.add_argument("--usd_path", default=DEFAULT_USD, help="Path to the converted robot USD/USDA.")
@@ -48,15 +57,8 @@ ROBOT_CFG = ArticulationCfg(
         ),
     ),
     init_state=ArticulationCfg.InitialStateCfg(
-        pos=(0.0, 0.0, 0.38),
-        joint_pos={
-            "servo2": 0.0,
-            "servo1": 0.0,
-            "servo4": 0.0,
-            "servo3": 0.0,
-            "wheel1": 0.0,
-            "wheel2": 0.0,
-        },
+        pos=(0.0, 0.0, NOMINAL_HEIGHT),
+        joint_pos=NOMINAL_JOINT_POS,
     ),
     actuators={
         "leg_position": ImplicitActuatorCfg(
@@ -118,10 +120,10 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
 
         leg_target = robot.data.default_joint_pos.torch.clone()
         wave = args_cli.leg_amp * math.sin(2.0 * math.pi * 0.5 * sim_time)
-        leg_target[:, leg_ids[0]] = wave
-        leg_target[:, leg_ids[1]] = -0.5 * args_cli.leg_amp + 0.5 * wave
-        leg_target[:, leg_ids[2]] = wave
-        leg_target[:, leg_ids[3]] = -0.5 * args_cli.leg_amp + 0.5 * wave
+        leg_target[:, leg_ids[0]] += wave
+        leg_target[:, leg_ids[1]] += 0.5 * wave
+        leg_target[:, leg_ids[2]] += wave
+        leg_target[:, leg_ids[3]] += 0.5 * wave
 
         wheel_target = torch.zeros((scene.num_envs, len(wheel_ids)), device=sim.device)
         wheel_target[:, :] = args_cli.wheel_speed

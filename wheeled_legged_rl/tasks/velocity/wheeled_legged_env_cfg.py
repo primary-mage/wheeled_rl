@@ -25,8 +25,10 @@ import wheeled_legged_rl.tasks.velocity.mdp as mdp
 
 
 USD_PATH = "/home/mage/projects/wheeled_legged_rl/asset/usd/wheeled_robot/wheeled_robot.usda"
-NOMINAL_HEIGHT = 0.38
+NOMINAL_HEIGHT = 0.270
 NOMINAL_ROLL = 0.0
+HEIGHT_COMMAND_RANGE = (0.18, 0.36)
+ROLL_COMMAND_RANGE = (-math.radians(30.0), math.radians(30.0))
 
 
 WHEELED_LEGGED_CFG = ArticulationCfg(
@@ -105,7 +107,7 @@ class WheeledLeggedSceneCfg(InteractiveSceneCfg):
 
 @configclass
 class CommandsCfg:
-    """Command ranges for base velocity."""
+    """Command ranges for base velocity, height, and roll targets."""
 
     base_velocity = mdp.UniformVelocityCommandCfg(
         asset_name="robot",
@@ -121,11 +123,29 @@ class CommandsCfg:
             heading=(0.0, 0.0),
         ),
     )
+    base_height = mdp.UniformScalarCommandCfg(
+        resampling_time_range=(8.0, 12.0),
+        ranges=(NOMINAL_HEIGHT, NOMINAL_HEIGHT),
+        element_name="height",
+    )
+    base_roll = mdp.UniformScalarCommandCfg(
+        resampling_time_range=(8.0, 12.0),
+        ranges=(NOMINAL_ROLL, NOMINAL_ROLL),
+        element_name="roll",
+    )
 
 
 @configclass
-class WheelOnlyActionsCfg:
-    """Stage 1/2 actions: keep legs at nominal pose and control only wheel velocities."""
+class FixedLegWheelActionsCfg:
+    """Stage 1/2 actions: keep a fixed 6D interface while only wheel actions affect motion."""
+
+    leg_pos = mdp.JointPositionActionCfg(
+        asset_name="robot",
+        joint_names=["servo2", "servo1", "servo4", "servo3"],
+        scale=0.0,
+        use_default_offset=True,
+        preserve_order=True,
+    )
 
     wheel_vel = mdp.JointVelocityActionCfg(
         asset_name="robot",
@@ -143,7 +163,18 @@ class LegWheelActionsCfg:
     leg_pos = mdp.JointPositionActionCfg(
         asset_name="robot",
         joint_names=["servo2", "servo1", "servo4", "servo3"],
-        scale=0.35,
+        scale={
+            "servo2": 2.47,
+            "servo1": 1.90,
+            "servo4": 2.47,
+            "servo3": 1.90,
+        },
+        clip={
+            "servo2": (-1.57, 1.57),
+            "servo1": (-3.14, 0.0),
+            "servo4": (-1.57, 1.57),
+            "servo3": (-3.14, 0.0),
+        },
         use_default_offset=True,
         preserve_order=True,
     )
@@ -166,8 +197,8 @@ class ObservationsCfg:
         base_ang_vel = ObsTerm(func=mdp.base_ang_vel, noise=Unoise(n_min=-0.1, n_max=0.1))
         projected_gravity = ObsTerm(func=mdp.projected_gravity, noise=Unoise(n_min=-0.03, n_max=0.03))
         velocity_commands = ObsTerm(func=mdp.generated_commands, params={"command_name": "base_velocity"})
-        height_target = ObsTerm(func=mdp.constant_command, params={"value": NOMINAL_HEIGHT})
-        roll_target = ObsTerm(func=mdp.constant_command, params={"value": NOMINAL_ROLL})
+        height_target = ObsTerm(func=mdp.generated_commands, params={"command_name": "base_height"})
+        roll_target = ObsTerm(func=mdp.generated_commands, params={"command_name": "base_roll"})
         base_height = ObsTerm(func=mdp.base_height)
         base_roll = ObsTerm(func=mdp.base_roll)
         joint_pos = ObsTerm(func=mdp.joint_pos_rel, noise=Unoise(n_min=-0.01, n_max=0.01))
@@ -204,7 +235,7 @@ class EventsCfg:
             "velocity_range": {
                 "x": (-0.05, 0.05),
                 "y": (-0.05, 0.05),
-                "z": (-0.02, 0.02),
+                "z": (0.0, 0.0),
                 "roll": (-0.05, 0.05),
                 "pitch": (-0.05, 0.05),
                 "yaw": (-0.05, 0.05),
@@ -215,8 +246,19 @@ class EventsCfg:
         func=mdp.reset_joints_by_offset,
         mode="reset",
         params={
-            "position_range": (-0.05, 0.05),
+            "position_range": (0.0, 0.0),
             "velocity_range": (0.0, 0.0),
+        },
+    )
+    hold_leg_joint_targets = EventTerm(
+        func=mdp.set_joint_targets_to_default,
+        mode="reset",
+        params={
+            "asset_cfg": SceneEntityCfg(
+                "robot",
+                joint_names=["servo2", "servo1", "servo4", "servo3"],
+                preserve_order=True,
+            ),
         },
     )
     push_robot = EventTerm(
@@ -245,12 +287,12 @@ class RewardsCfg:
     track_height_exp = RewTerm(
         func=mdp.track_base_height_exp,
         weight=0.5,
-        params={"target_height": NOMINAL_HEIGHT, "std": 0.04},
+        params={"command_name": "base_height", "std": 0.04},
     )
     track_roll_exp = RewTerm(
         func=mdp.track_base_roll_exp,
         weight=0.25,
-        params={"target_roll": NOMINAL_ROLL, "std": 0.12},
+        params={"command_name": "base_roll", "std": 0.12},
     )
 
     # Stability and smoothness penalties.
@@ -290,7 +332,7 @@ class WheeledLeggedStage1EnvCfg(ManagerBasedRLEnvCfg):
     sim: SimulationCfg = SimulationCfg(physics=PhysxCfg(gpu_max_rigid_patch_count=10 * 2**15))
     scene: WheeledLeggedSceneCfg = WheeledLeggedSceneCfg(num_envs=2048, env_spacing=2.0, clone_in_fabric=True)
     observations: ObservationsCfg = ObservationsCfg()
-    actions: WheelOnlyActionsCfg = WheelOnlyActionsCfg()
+    actions: FixedLegWheelActionsCfg = FixedLegWheelActionsCfg()
     commands: CommandsCfg = CommandsCfg()
     rewards: RewardsCfg = RewardsCfg()
     terminations: TerminationsCfg = TerminationsCfg()
@@ -322,34 +364,31 @@ class WheeledLeggedStage2EnvCfg(WheeledLeggedStage1EnvCfg):
     def __post_init__(self):
         super().__post_init__()
         self.commands.base_velocity.ranges.lin_vel_x = (-0.6, 0.6)
-        self.commands.base_velocity.ranges.ang_vel_z = (-0.8, 0.8)
+        self.commands.base_velocity.ranges.ang_vel_z = (-1.2, 1.2)
         self.rewards.track_ang_vel_z_exp.weight = 0.5
         self.events.push_robot.params["velocity_range"] = {"x": (-0.3, 0.3), "y": (-0.15, 0.15), "yaw": (-0.3, 0.3)}
 
 
 @configclass
 class WheeledLeggedStage3EnvCfg(WheeledLeggedStage2EnvCfg):
-    """Stage 3 scaffold: train around a lower nominal height before enabling random height commands."""
+    """Stage 3: enable leg control and random height targets."""
 
     actions: LegWheelActionsCfg = LegWheelActionsCfg()
 
     def __post_init__(self):
         super().__post_init__()
-        target_height = 0.34
-        self.observations.policy.height_target.params["value"] = target_height
-        self.rewards.track_height_exp.params["target_height"] = target_height
+        self.commands.base_height.ranges = HEIGHT_COMMAND_RANGE
         self.rewards.track_height_exp.weight = 0.8
         self.rewards.lin_vel_z_l2.weight = -0.2
+        self.terminations.root_height.params["bounds"] = (0.12, 0.60)
 
 
 @configclass
 class WheeledLeggedStage4EnvCfg(WheeledLeggedStage3EnvCfg):
-    """Stage 4 scaffold: add nonzero roll tracking target."""
+    """Stage 4: add random roll targets."""
 
     def __post_init__(self):
         super().__post_init__()
-        target_roll = 0.15
-        self.observations.policy.roll_target.params["value"] = target_roll
-        self.rewards.track_roll_exp.params["target_roll"] = target_roll
+        self.commands.base_roll.ranges = ROLL_COMMAND_RANGE
         self.rewards.track_roll_exp.weight = 0.8
         self.rewards.ang_vel_xy_l2.weight = -0.03

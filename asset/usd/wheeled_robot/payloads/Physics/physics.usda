@@ -4,13 +4,13 @@
         string creator = "MuJoCo USD Converter v0.2.0"
     }
     defaultPrim = "wheeled_legged_robot"
-    doc = """Generated from Composed Stage of root layer /tmp/tmps__jrbmd/wheeled_legged_robot.usdc
+    doc = """Generated from Composed Stage of root layer /tmp/tmp7hsoxo5v/wheeled_legged_robot.usdc
 
 
-Generated from Composed Stage of root layer /tmp/mjcf_import_wheeled_robot_k4t8x46d/usdex_wheeled_robot/wheeled_legged_robot.usdc
+Generated from Composed Stage of root layer /tmp/mjcf_import_wheeled_robot_tdtqn7ne/usdex_wheeled_robot/wheeled_legged_robot.usdc
 
 
-Generated from Composed Stage of root layer /tmp/mjcf_import_wheeled_robot_k4t8x46d/temp_wheeled_robot/wheeled_robot.usd
+Generated from Composed Stage of root layer /tmp/mjcf_import_wheeled_robot_tdtqn7ne/temp_wheeled_robot/wheeled_robot.usd
 """
     kilogramsPerUnit = 1
     metersPerUnit = 1
@@ -26,8 +26,8 @@ over "wheeled_legged_robot"
         )
         {
             bool newton:selfCollisionEnabled = 0
-            point3f physics:centerOfMass = (-0.00023377, -0.000087665, -0.0089819)
-            float3 physics:diagonalInertia = (0.003618, 0.002836, 0.00106)
+            point3f physics:centerOfMass = (-0.000087665, 0.00023377, -0.0089819)
+            float3 physics:diagonalInertia = (0.002836, 0.003618, 0.00106)
             rel physics:filteredPairs = [
                 </wheeled_legged_robot/Geometry/base_link/left_leg>,
                 </wheeled_legged_robot/Geometry/base_link/right_leg>,
@@ -112,7 +112,7 @@ over "wheeled_legged_robot"
                             prepend rel physics:body1 = </wheeled_legged_robot/Geometry/base_link/left_leg/left_foot/left_wheel>
                             point3f physics:localPos0 = (-0.00077824, -0.14, -0.00275)
                             point3f physics:localPos1 = (0, 0, 0)
-                            quatf physics:localRot0 = (-0.00000367321, -2.220446e-16, 8.326673e-17, 1)
+                            quatf physics:localRot0 = (-0.00000367321, -1.625954e-17, 1.110223e-16, 1)
                             quatf physics:localRot1 = (1, 0, 0, 0)
                         }
                     }
@@ -150,9 +150,9 @@ over "wheeled_legged_robot"
                     prepend rel physics:body0 = </wheeled_legged_robot/Geometry/base_link>
                     custom rel physics:body1
                     prepend rel physics:body1 = </wheeled_legged_robot/Geometry/base_link/left_leg>
-                    point3f physics:localPos0 = (-0.1148, 0, -0.04075)
+                    point3f physics:localPos0 = (0, 0.1148, -0.04075)
                     point3f physics:localPos1 = (0, 0, 0)
-                    quatf physics:localRot0 = (-0.499998, -0.5, 0.500002, 0.5)
+                    quatf physics:localRot0 = (-1.6081226e-16, -4.5986944e-17, 0.70710677, 0.70710677)
                     quatf physics:localRot1 = (1, 0, 0, 0)
                     float physics:lowerLimit = -89.95438
                     float physics:upperLimit = 89.95438
@@ -225,7 +225,7 @@ over "wheeled_legged_robot"
                             prepend rel physics:body1 = </wheeled_legged_robot/Geometry/base_link/right_leg/right_foot/right_wheel>
                             point3f physics:localPos0 = (0.00077824, -0.14, -0.00275)
                             point3f physics:localPos1 = (0, 0, 0)
-                            quatf physics:localRot0 = (-2.7755576e-17, -1, 0, 0)
+                            quatf physics:localRot0 = (0, -1, 0, 0)
                             quatf physics:localRot1 = (0, -1, 0, 0)
                         }
                     }
@@ -244,7 +244,7 @@ over "wheeled_legged_robot"
                         prepend rel physics:body1 = </wheeled_legged_robot/Geometry/base_link/right_leg/right_foot>
                         point3f physics:localPos0 = (-0.0002967, -0.14, 0)
                         point3f physics:localPos1 = (0, 0, 0)
-                        quatf physics:localRot0 = (-2.7755576e-17, -1, 0, 0)
+                        quatf physics:localRot0 = (0, -1, 0, 0)
                         quatf physics:localRot1 = (0, -1, 0, 0)
                         float physics:lowerLimit = -179.90875
                         float physics:upperLimit = 0
@@ -263,9 +263,9 @@ over "wheeled_legged_robot"
                     prepend rel physics:body0 = </wheeled_legged_robot/Geometry/base_link>
                     custom rel physics:body1
                     prepend rel physics:body1 = </wheeled_legged_robot/Geometry/base_link/right_leg>
-                    point3f physics:localPos0 = (0.1148, 0, -0.04075)
+                    point3f physics:localPos0 = (0, -0.1148, -0.04075)
                     point3f physics:localPos1 = (0, 0, 0)
-                    quatf physics:localRot0 = (0.5, -0.499998, -0.5, 0.500002)
+                    quatf physics:localRot0 = (0.7071067, -0.7071068, 0, 0)
                     quatf physics:localRot1 = (0, -1, 0, 0)
                     float physics:lowerLimit = -89.95438
                     float physics:upperLimit = 89.95438

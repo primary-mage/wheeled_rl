@@ -8,26 +8,40 @@ from isaaclab.utils.math import euler_xyz_from_quat
 
 def track_base_height_exp(
     env,
-    target_height: float,
     std: float,
+    command_name: str | None = None,
+    target_height: float | None = None,
     asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
 ) -> torch.Tensor:
     """Reward root height tracking with an exponential kernel."""
     asset = env.scene[asset_cfg.name]
-    error = torch.square(asset.data.root_pos_w.torch[:, 2] - target_height)
+    if command_name is not None:
+        target = env.command_manager.get_command(command_name)[:, 0]
+    elif target_height is not None:
+        target = target_height
+    else:
+        raise ValueError("Either command_name or target_height must be provided.")
+    error = torch.square(asset.data.root_pos_w.torch[:, 2] - target)
     return torch.exp(-error / std**2)
 
 
 def track_base_roll_exp(
     env,
-    target_roll: float,
     std: float,
+    command_name: str | None = None,
+    target_roll: float | None = None,
     asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
 ) -> torch.Tensor:
     """Reward root roll tracking with an exponential kernel."""
     asset = env.scene[asset_cfg.name]
     roll, _, _ = euler_xyz_from_quat(asset.data.root_quat_w.torch)
-    error = torch.square(roll - target_roll)
+    if command_name is not None:
+        target = env.command_manager.get_command(command_name)[:, 0]
+    elif target_roll is not None:
+        target = target_roll
+    else:
+        raise ValueError("Either command_name or target_roll must be provided.")
+    error = torch.square(roll - target)
     return torch.exp(-error / std**2)
 
 
@@ -42,4 +56,3 @@ def lateral_lin_vel_l2(env, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"))
     """Penalize lateral velocity for a non-holonomic two-wheel platform."""
     asset = env.scene[asset_cfg.name]
     return torch.square(asset.data.root_lin_vel_b.torch[:, 1])
-

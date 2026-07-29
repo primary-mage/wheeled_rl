@@ -31,7 +31,8 @@
     <!-- 1. 添加灯光和地板 -->
     <light pos="0 0 1.5" dir="0 0 -1" directional="true" />
     <body name="base_link" pos="0 0 0.5">
-      
+      <freejoint
+        name="root" />
       <inertial pos="-0.00023377 -8.7665e-05 -0.0089819" mass="0.94"
         diaginertia="0.003618 0.002836 0.00106" />
       <geom name="base_link_visual" type="mesh" rgba="0.79216 0.81961 0.93333 1" mesh="base_link"
