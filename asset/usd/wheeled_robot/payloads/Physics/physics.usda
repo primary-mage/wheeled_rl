@@ -1,0 +1,300 @@
+#usda 1.0
+(
+    customLayerData = {
+        string creator = "MuJoCo USD Converter v0.2.0"
+    }
+    defaultPrim = "wheeled_legged_robot"
+    doc = """Generated from Composed Stage of root layer /tmp/tmpr9hxebm7/wheeled_legged_robot.usdc
+
+
+Generated from Composed Stage of root layer /tmp/mjcf_import_wheeled_robot_qytu37d5/usdex_wheeled_robot/wheeled_legged_robot.usdc
+
+
+Generated from Composed Stage of root layer /tmp/mjcf_import_wheeled_robot_qytu37d5/temp_wheeled_robot/wheeled_robot.usd
+
+
+Generated from Composed Stage of root layer /home/mage/projects/wheeled_legged_rl/asset/usd/wheeled_robot/payloads/base.usd
+"""
+    kilogramsPerUnit = 1
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+over "wheeled_legged_robot"
+{
+    over "Geometry"
+    {
+        over "floor" (
+            prepend apiSchemas = ["NewtonCollisionAPI", "PhysicsMassAPI"]
+        )
+        {
+            float newton:contactGap = 0
+            float physics:density = 1000
+        }
+
+        over "base_link" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsArticulationRootAPI", "NewtonArticulationRootAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            bool newton:selfCollisionEnabled = 0
+            point3f physics:centerOfMass = (-0.00023377, -0.000087665, -0.0089819)
+            float3 physics:diagonalInertia = (0.003618, 0.002836, 0.00106)
+            rel physics:filteredPairs = [
+                </wheeled_legged_robot/Geometry/base_link/left_leg>,
+                </wheeled_legged_robot/Geometry/base_link/right_leg>,
+            ]
+            float physics:mass = 0.94
+            quatf physics:principalAxes = (1, 0, 0, 0)
+
+            over "base_link_collision" (
+                prepend apiSchemas = ["NewtonCollisionAPI", "PhysicsMassAPI"]
+            )
+            {
+                float newton:contactGap = 0
+                float physics:density = 1000
+            }
+
+            over "left_leg" (
+                prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+            )
+            {
+                point3f physics:centerOfMass = (0.014085, -0.086343, -0.017864)
+                float3 physics:diagonalInertia = (0.00022805, 0.000205989, 0.0000364827)
+                rel physics:filteredPairs = [
+                    </wheeled_legged_robot/Geometry/base_link/right_leg>,
+                    </wheeled_legged_robot/Geometry/base_link/left_leg/left_foot>,
+                ]
+                float physics:mass = 0.11866
+                quatf physics:principalAxes = (0.704744, 0.699928, 0.079862, 0.084017)
+
+                over "left_leg_collision" (
+                    prepend apiSchemas = ["NewtonCollisionAPI", "PhysicsMassAPI"]
+                )
+                {
+                    float newton:contactGap = 0
+                    float physics:density = 1000
+                }
+
+                over "left_foot" (
+                    prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+                )
+                {
+                    point3f physics:centerOfMass = (-0.00038874, -0.06993, -0.0060741)
+                    float3 physics:diagonalInertia = (0.000135864, 0.000131727, 0.00000916446)
+                    rel physics:filteredPairs = </wheeled_legged_robot/Geometry/base_link/left_leg/left_foot/left_wheel>
+                    float physics:mass = 0.057726
+                    quatf physics:principalAxes = (0.74777704, 0.66394407, -0.0018455302, -0.0020782703)
+
+                    over "left_foot_collision" (
+                        prepend apiSchemas = ["NewtonCollisionAPI", "PhysicsMassAPI"]
+                    )
+                    {
+                        float newton:contactGap = 0
+                        float physics:density = 1000
+                    }
+
+                    over "left_wheel" (
+                        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+                    )
+                    {
+                        point3f physics:centerOfMass = (-0.00048154, -0.00095238, 0.036709)
+                        float3 physics:diagonalInertia = (0.001867885, 0.0010275614, 0.0010275614)
+                        float physics:mass = 0.65
+                        quatf physics:principalAxes = (0.5, 0.5, -0.5, 0.5)
+
+                        over "left_wheel_collision" (
+                            prepend apiSchemas = ["NewtonCollisionAPI", "PhysicsMassAPI"]
+                        )
+                        {
+                            float newton:contactGap = 0
+                            float physics:density = 1000
+                        }
+
+                        def PhysicsRevoluteJoint "wheel1" (
+                            prepend apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+                        )
+                        {
+                            float drive:angular:physics:damping = 2
+                            float drive:angular:physics:stiffness = 0
+                            uniform token physics:axis = "Z"
+                            custom rel physics:body0
+                            prepend rel physics:body0 = </wheeled_legged_robot/Geometry/base_link/left_leg/left_foot>
+                            custom rel physics:body1
+                            prepend rel physics:body1 = </wheeled_legged_robot/Geometry/base_link/left_leg/left_foot/left_wheel>
+                            point3f physics:localPos0 = (-0.00077824, -0.14, -0.00275)
+                            point3f physics:localPos1 = (0, 0, 0)
+                            quatf physics:localRot0 = (-0.00000367321, -2.220446e-16, 8.326673e-17, 1)
+                            quatf physics:localRot1 = (1, 0, 0, 0)
+                        }
+                    }
+
+                    def PhysicsRevoluteJoint "servo1" (
+                        prepend apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+                    )
+                    {
+                        float drive:angular:physics:damping = 2
+                        float drive:angular:physics:maxForce = 2
+                        float drive:angular:physics:stiffness = 10
+                        uniform token physics:axis = "Z"
+                        custom rel physics:body0
+                        prepend rel physics:body0 = </wheeled_legged_robot/Geometry/base_link/left_leg>
+                        custom rel physics:body1
+                        prepend rel physics:body1 = </wheeled_legged_robot/Geometry/base_link/left_leg/left_foot>
+                        point3f physics:localPos0 = (0.0002967, -0.14, -1.3877788e-17)
+                        point3f physics:localPos1 = (0, 0, 0)
+                        quatf physics:localRot0 = (1, 0, 0, 0)
+                        quatf physics:localRot1 = (1, 0, 0, 0)
+                        float physics:lowerLimit = -179.90875
+                        float physics:upperLimit = 0
+                    }
+                }
+
+                def PhysicsRevoluteJoint "servo2" (
+                    prepend apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+                )
+                {
+                    float drive:angular:physics:damping = 2
+                    float drive:angular:physics:maxForce = 2
+                    float drive:angular:physics:stiffness = 10
+                    uniform token physics:axis = "Z"
+                    custom rel physics:body0
+                    prepend rel physics:body0 = </wheeled_legged_robot/Geometry/base_link>
+                    custom rel physics:body1
+                    prepend rel physics:body1 = </wheeled_legged_robot/Geometry/base_link/left_leg>
+                    point3f physics:localPos0 = (-0.1148, 0, -0.04075)
+                    point3f physics:localPos1 = (0, 0, 0)
+                    quatf physics:localRot0 = (-0.499998, -0.5, 0.500002, 0.5)
+                    quatf physics:localRot1 = (1, 0, 0, 0)
+                    float physics:lowerLimit = -89.95438
+                    float physics:upperLimit = 89.95438
+                }
+            }
+
+            over "right_leg" (
+                prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+            )
+            {
+                point3f physics:centerOfMass = (-0.014085, -0.086343, -0.017864)
+                float3 physics:diagonalInertia = (0.00022805, 0.000205989, 0.0000364827)
+                rel physics:filteredPairs = </wheeled_legged_robot/Geometry/base_link/right_leg/right_foot>
+                float physics:mass = 0.11866
+                quatf physics:principalAxes = (0.704744, 0.699928, -0.079862, -0.084017)
+
+                over "right_leg_collision" (
+                    prepend apiSchemas = ["NewtonCollisionAPI", "PhysicsMassAPI"]
+                )
+                {
+                    float newton:contactGap = 0
+                    float physics:density = 1000
+                }
+
+                over "right_foot" (
+                    prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+                )
+                {
+                    point3f physics:centerOfMass = (0.00038874, -0.06993, -0.0060741)
+                    float3 physics:diagonalInertia = (0.000135864, 0.000131727, 0.00000916446)
+                    rel physics:filteredPairs = </wheeled_legged_robot/Geometry/base_link/right_leg/right_foot/right_wheel>
+                    float physics:mass = 0.057726
+                    quatf physics:principalAxes = (0.74777704, 0.66394407, 0.0018455302, 0.0020782703)
+
+                    over "right_foot_collision" (
+                        prepend apiSchemas = ["NewtonCollisionAPI", "PhysicsMassAPI"]
+                    )
+                    {
+                        float newton:contactGap = 0
+                        float physics:density = 1000
+                    }
+
+                    over "right_wheel" (
+                        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+                    )
+                    {
+                        point3f physics:centerOfMass = (-0.00048154, 0.00095238, 0.036709)
+                        float3 physics:diagonalInertia = (0.0018679749, 0.0010282954, 0.0010282055)
+                        float physics:mass = 0.65
+                        quatf physics:principalAxes = (0.5, 0.5, -0.5, 0.5)
+
+                        over "right_wheel_collision" (
+                            prepend apiSchemas = ["NewtonCollisionAPI", "PhysicsMassAPI"]
+                        )
+                        {
+                            float newton:contactGap = 0
+                            float physics:density = 1000
+                        }
+
+                        def PhysicsRevoluteJoint "wheel2" (
+                            prepend apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+                        )
+                        {
+                            float drive:angular:physics:damping = 2
+                            float drive:angular:physics:stiffness = 0
+                            uniform token physics:axis = "Z"
+                            custom rel physics:body0
+                            prepend rel physics:body0 = </wheeled_legged_robot/Geometry/base_link/right_leg/right_foot>
+                            custom rel physics:body1
+                            prepend rel physics:body1 = </wheeled_legged_robot/Geometry/base_link/right_leg/right_foot/right_wheel>
+                            point3f physics:localPos0 = (0.00077824, -0.14, -0.00275)
+                            point3f physics:localPos1 = (0, 0, 0)
+                            quatf physics:localRot0 = (-2.7755576e-17, -1, 0, 0)
+                            quatf physics:localRot1 = (0, -1, 0, 0)
+                        }
+                    }
+
+                    def PhysicsRevoluteJoint "servo3" (
+                        prepend apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+                    )
+                    {
+                        float drive:angular:physics:damping = 2
+                        float drive:angular:physics:maxForce = 2
+                        float drive:angular:physics:stiffness = 10
+                        uniform token physics:axis = "Z"
+                        custom rel physics:body0
+                        prepend rel physics:body0 = </wheeled_legged_robot/Geometry/base_link/right_leg>
+                        custom rel physics:body1
+                        prepend rel physics:body1 = </wheeled_legged_robot/Geometry/base_link/right_leg/right_foot>
+                        point3f physics:localPos0 = (-0.0002967, -0.14, 0)
+                        point3f physics:localPos1 = (0, 0, 0)
+                        quatf physics:localRot0 = (-2.7755576e-17, -1, 0, 0)
+                        quatf physics:localRot1 = (0, -1, 0, 0)
+                        float physics:lowerLimit = -179.90875
+                        float physics:upperLimit = 0
+                    }
+                }
+
+                def PhysicsRevoluteJoint "servo4" (
+                    prepend apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+                )
+                {
+                    float drive:angular:physics:damping = 2
+                    float drive:angular:physics:maxForce = 2
+                    float drive:angular:physics:stiffness = 10
+                    uniform token physics:axis = "Z"
+                    custom rel physics:body0
+                    prepend rel physics:body0 = </wheeled_legged_robot/Geometry/base_link>
+                    custom rel physics:body1
+                    prepend rel physics:body1 = </wheeled_legged_robot/Geometry/base_link/right_leg>
+                    point3f physics:localPos0 = (0.1148, 0, -0.04075)
+                    point3f physics:localPos1 = (0, 0, 0)
+                    quatf physics:localRot0 = (0.5, -0.499998, -0.5, 0.500002)
+                    quatf physics:localRot1 = (0, -1, 0, 0)
+                    float physics:lowerLimit = -89.95438
+                    float physics:upperLimit = 89.95438
+                }
+            }
+        }
+    }
+
+    over "Physics"
+    {
+        over "PhysicsMaterial" (
+            prepend apiSchemas = ["PhysicsMaterialAPI", "NewtonMaterialAPI"]
+        )
+        {
+            float newton:rollingFriction = 0.0001
+            float newton:torsionalFriction = 0.005
+            float physics:dynamicFriction = 1
+        }
+    }
+}
+

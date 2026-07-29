@@ -36,8 +36,10 @@
     <body name="base_link" pos="0 0 0.5">
       <freejoint
         name="root" />
+      <inertial pos="-0.00023377 -8.7665e-05 -0.0089819" mass="0.94"
+        diaginertia="0.003618 0.002836 0.00106" />
       <geom name="base_link_visual" type="mesh" rgba="0.79216 0.81961 0.93333 1" mesh="base_link"
-        contype="0" conaffinity="0" group="1" />
+        contype="0" conaffinity="0" density="0" group="1" />
       <geom name="base_link_collision" type="box" size="0.138 0.053 0.025" rgba="0 0.8 0.2 0.25"
         group="3" />
 
@@ -48,7 +50,7 @@
         <joint name="servo2" pos="0 0 0" axis="0 0 1" range="-1.57 1.57" actuatorfrcrange="-5 5"
           damping="0.1" armature="0.01" />
         <geom name="left_leg_visual" type="mesh" rgba="0.79216 0.81961 0.93333 1" mesh="left_leg"
-          contype="0" conaffinity="0" group="1" />
+          contype="0" conaffinity="0" density="0" group="1" />
         <geom name="left_leg_collision" type="capsule" fromto="0.016 -0.09 -0.02 -0.006 -0.01 -0.02"
           size="0.027" rgba="0 0.8 0.2 0.25" group="3" />
         <body name="left_foot" pos="0.0002967 -0.14 0">
@@ -59,16 +61,16 @@
             damping="0.1" armature="0.01" />
           <geom name="left_foot_visual" type="mesh" rgba="0.79216 0.81961 0.93333 1"
             mesh="left_foot"
-            contype="0" conaffinity="0" group="1" />
+            contype="0" conaffinity="0" density="0" group="1" />
           <geom name="left_foot_collision" type="capsule" fromto="0.000 -0.05 0 0.0 0.00 -0.02"
             size="0.021" rgba="0 0.8 0.2 0.25" group="3" />
           <body name="left_wheel" pos="-0.00077824 -0.14 -0.00275" quat="-3.67321e-06 0 0 1">
-            <inertial pos="-0.00048154 -0.00095238 0.036709" quat="0.5 0.5 -0.5 0.5" mass="0.43394"
-              diaginertia="0.001247 0.000686 0.000686" />
+            <inertial pos="-0.00048154 -0.00095238 0.036709" quat="0.5 0.5 -0.5 0.5" mass="0.65"
+              diaginertia="0.001867884961 0.001027561414 0.001027561414" />
             <joint name="wheel1" pos="0 0 0" axis="0 0 1" damping="0.02" armature="0.01" />
             <geom name="left_wheel_visual" type="mesh" rgba="0.79216 0.81961 0.93333 1"
               mesh="left_wheel"
-              contype="0" conaffinity="0" group="1" />
+              contype="0" conaffinity="0" density="0" group="1" />
             <geom name="left_wheel_collision" type="cylinder" pos="0.0 0.0 0.03" size="0.0625 0.035"
               rgba="0 0.8 0.2 0.25"
               group="3" />
@@ -82,7 +84,7 @@
         <joint name="servo4" pos="0 0 0" axis="0 0 -1" range="-1.57 1.57" actuatorfrcrange="-5 5"
           damping="0.1" armature="0.01" />
         <geom name="right_leg_visual" type="mesh" rgba="1 1 1 1" mesh="right_leg" contype="0"
-          conaffinity="0" group="1" />
+          conaffinity="0" density="0" group="1" />
         <geom name="right_leg_collision" type="capsule"
           fromto="-0.016 -0.09 -0.02 0.006 -0.01 -0.02"
           size="0.027" rgba="0 0.8 0.2 0.25" group="3" />
@@ -94,16 +96,16 @@
             damping="0.1" armature="0.01" />
           <geom name="right_foot_visual" type="mesh" rgba="0.79216 0.81961 0.93333 1"
             mesh="right_foot"
-            contype="0" conaffinity="0" group="1" />
+            contype="0" conaffinity="0" density="0" group="1" />
           <geom name="right_foot_collision" type="capsule" fromto="0.000 -0.05 0 0.0 0.00 -0.02"
             size="0.021" rgba="0 0.8 0.2 0.25" group="3" />
           <body name="right_wheel" pos="0.00077824 -0.14 -0.00275">
-            <inertial pos="-0.00048154 0.00095238 0.036709" quat="0.5 0.5 -0.5 0.5" mass="0.43394"
-              diaginertia="0.00124706 0.00068649 0.00068643" />
+            <inertial pos="-0.00048154 0.00095238 0.036709" quat="0.5 0.5 -0.5 0.5" mass="0.65"
+              diaginertia="0.001867974835 0.001028295386 0.001028205512" />
             <joint name="wheel2" pos="0 0 0" axis="0 0 -1" damping="0.02" armature="0.01" />
             <geom name="right_wheel_visual" type="mesh" rgba="0.94118 0.67451 0.11765 1"
               mesh="right_wheel"
-              contype="0" conaffinity="0" group="1" />
+              contype="0" conaffinity="0" density="0" group="1" />
             <geom name="right_wheel_collision" type="cylinder" pos="0.0 0.0 0.03"
               size="0.0625 0.035"
               rgba="0 0.8 0.2 0.25" group="3" />
