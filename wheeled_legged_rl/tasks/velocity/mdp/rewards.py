@@ -3,7 +3,7 @@
 import torch
 
 from isaaclab.managers import SceneEntityCfg
-from isaaclab.utils.math import euler_xyz_from_quat
+from isaaclab.utils.math import euler_xyz_from_quat, quat_apply_inverse
 
 
 def track_base_height_exp(
@@ -56,3 +56,22 @@ def lateral_lin_vel_l2(env, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"))
     """Penalize lateral velocity for a non-holonomic two-wheel platform."""
     asset = env.scene[asset_cfg.name]
     return torch.square(asset.data.root_lin_vel_b.torch[:, 1])
+
+
+def wheel_forward_alignment_l2(
+    env,
+    forward_axis: int,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg(
+        "robot",
+        body_names=["left_wheel", "right_wheel"],
+        preserve_order=True,
+    ),
+) -> torch.Tensor:
+    """Penalize fore-aft wheel offset in the robot base frame."""
+    asset = env.scene[asset_cfg.name]
+    wheel_pos_w = asset.data.body_pos_w.torch[:, asset_cfg.body_ids, :]
+    wheel_pos_b = quat_apply_inverse(
+        asset.data.root_quat_w.torch[:, None, :].expand(-1, wheel_pos_w.shape[1], -1),
+        wheel_pos_w - asset.data.root_pos_w.torch[:, None, :],
+    )
+    return torch.square(wheel_pos_b[:, 0, forward_axis] - wheel_pos_b[:, 1, forward_axis])

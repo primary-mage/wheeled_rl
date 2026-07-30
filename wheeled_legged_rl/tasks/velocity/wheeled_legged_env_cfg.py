@@ -27,8 +27,30 @@ import wheeled_legged_rl.tasks.velocity.mdp as mdp
 USD_PATH = "/home/mage/projects/wheeled_legged_rl/asset/usd/wheeled_robot/wheeled_robot.usda"
 NOMINAL_HEIGHT = 0.270
 NOMINAL_ROLL = 0.0
-HEIGHT_COMMAND_RANGE = (0.18, 0.36)
+STAGE3A_HEIGHT_COMMAND_RANGE = (0.24, 0.30)
+STAGE3B_HEIGHT_COMMAND_RANGE = (0.22, 0.32)
+STAGE3C_HEIGHT_COMMAND_RANGE = (0.20, 0.34)
+STAGE3D_HEIGHT_COMMAND_RANGE = (0.18, 0.36)
+HEIGHT_COMMAND_RANGE = STAGE3D_HEIGHT_COMMAND_RANGE
+STAGE4A_ROLL_COMMAND_RANGE = (-math.radians(10.0), math.radians(10.0))
+STAGE4B_ROLL_COMMAND_RANGE = (-math.radians(20.0), math.radians(20.0))
+STAGE4C_ROLL_COMMAND_RANGE = (-math.radians(30.0), math.radians(30.0))
+STAGE4C_EDGE_ROLL_LIMIT = math.radians(8.0)
+STAGE5A_YAW_RATE_RANGE = (-0.4, 0.4)
+STAGE5B_YAW_RATE_RANGE = (-0.8, 0.8)
+STAGE5C_YAW_RATE_RANGE = (-1.2, 1.2)
+STAGE6_COMMAND_RESAMPLING_TIME = (2.0, 4.0)
+STAGE6_VELOCITY_RATE_LIMITS = (0.7, 0.7, 1.2)
+STAGE6_HEIGHT_RATE_LIMIT = 0.06
+STAGE6_ROLL_RATE_LIMIT = math.radians(20.0)
+STAGE6_ROLL_DEMO_RANGE = (-math.radians(10.0), math.radians(10.0))
 ROLL_COMMAND_RANGE = (-math.radians(30.0), math.radians(30.0))
+STAGE3_SMOOTH_LEG_ACTION_SCALE = {
+    "servo2": 1.60,
+    "servo1": 1.25,
+    "servo4": 1.60,
+    "servo3": 1.25,
+}
 
 
 WHEELED_LEGGED_CFG = ArticulationCfg(
@@ -298,6 +320,18 @@ class RewardsCfg:
     # Stability and smoothness penalties.
     lin_vel_z_l2 = RewTerm(func=mdp.lin_vel_z_l2, weight=-0.5)
     lateral_lin_vel_l2 = RewTerm(func=mdp.lateral_lin_vel_l2, weight=-0.2)
+    wheel_forward_alignment_l2 = RewTerm(
+        func=mdp.wheel_forward_alignment_l2,
+        weight=0.0,
+        params={
+            "forward_axis": 0,
+            "asset_cfg": SceneEntityCfg(
+                "robot",
+                body_names=["left_wheel", "right_wheel"],
+                preserve_order=True,
+            ),
+        },
+    )
     ang_vel_xy_l2 = RewTerm(func=mdp.ang_vel_xy_l2, weight=-0.05)
     pitch_l2 = RewTerm(func=mdp.pitch_l2, weight=-0.5)
     dof_torques_l2 = RewTerm(func=mdp.joint_torques_l2, weight=-2.5e-5)
@@ -370,25 +404,242 @@ class WheeledLeggedStage2EnvCfg(WheeledLeggedStage1EnvCfg):
 
 
 @configclass
-class WheeledLeggedStage3EnvCfg(WheeledLeggedStage2EnvCfg):
-    """Stage 3: enable leg control and random height targets."""
+class WheeledLeggedStage3BaseEnvCfg(WheeledLeggedStage2EnvCfg):
+    """Base Stage 3 settings: enable leg control and height tracking."""
 
     actions: LegWheelActionsCfg = LegWheelActionsCfg()
 
     def __post_init__(self):
         super().__post_init__()
-        self.commands.base_height.ranges = HEIGHT_COMMAND_RANGE
-        self.rewards.track_height_exp.weight = 0.8
-        self.rewards.lin_vel_z_l2.weight = -0.2
+        self.actions.leg_pos.scale = STAGE3_SMOOTH_LEG_ACTION_SCALE
+        self.rewards.wheel_forward_alignment_l2.weight = -8.0
+        self.rewards.lin_vel_z_l2.weight = -0.35
+        self.rewards.dof_acc_l2.weight = -5.0e-7
+        self.rewards.action_rate_l2.weight = -0.05
         self.terminations.root_height.params["bounds"] = (0.12, 0.60)
+
+    def _set_height_curriculum(self, height_range: tuple[float, float], height_weight: float):
+        self.commands.base_height.ranges = height_range
+        self.rewards.track_height_exp.weight = height_weight
 
 
 @configclass
-class WheeledLeggedStage4EnvCfg(WheeledLeggedStage3EnvCfg):
-    """Stage 4: add random roll targets."""
+class WheeledLeggedStage3aEnvCfg(WheeledLeggedStage3BaseEnvCfg):
+    """Stage 3a: narrow height range with high height-tracking weight."""
 
     def __post_init__(self):
         super().__post_init__()
-        self.commands.base_roll.ranges = ROLL_COMMAND_RANGE
-        self.rewards.track_roll_exp.weight = 0.8
+        self._set_height_curriculum(STAGE3A_HEIGHT_COMMAND_RANGE, 1.0)
+
+
+@configclass
+class WheeledLeggedStage3bEnvCfg(WheeledLeggedStage3BaseEnvCfg):
+    """Stage 3b: medium-narrow height range."""
+
+    def __post_init__(self):
+        super().__post_init__()
+        self._set_height_curriculum(STAGE3B_HEIGHT_COMMAND_RANGE, 1.0)
+
+
+@configclass
+class WheeledLeggedStage3cEnvCfg(WheeledLeggedStage3BaseEnvCfg):
+    """Stage 3c: medium-wide height range."""
+
+    def __post_init__(self):
+        super().__post_init__()
+        self._set_height_curriculum(STAGE3C_HEIGHT_COMMAND_RANGE, 0.9)
+
+
+@configclass
+class WheeledLeggedStage3dEnvCfg(WheeledLeggedStage3BaseEnvCfg):
+    """Stage 3d: full height range."""
+
+    def __post_init__(self):
+        super().__post_init__()
+        self._set_height_curriculum(STAGE3D_HEIGHT_COMMAND_RANGE, 0.8)
+
+
+@configclass
+class WheeledLeggedStage3EnvCfg(WheeledLeggedStage3dEnvCfg):
+    """Stage 3 final alias: full height range."""
+
+    pass
+
+
+@configclass
+class WheeledLeggedStage4BaseEnvCfg(WheeledLeggedStage3EnvCfg):
+    """Base Stage 4 settings: train roll tracking while holding target yaw rate at zero."""
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.commands.base_velocity.ranges.ang_vel_z = (0.0, 0.0)
+        self.rewards.track_ang_vel_z_exp.weight = 0.2
         self.rewards.ang_vel_xy_l2.weight = -0.03
+
+    def _set_roll_curriculum(self, roll_range: tuple[float, float], roll_weight: float):
+        self.commands.base_roll.ranges = roll_range
+        self.rewards.track_roll_exp.weight = roll_weight
+
+
+@configclass
+class WheeledLeggedStage4aEnvCfg(WheeledLeggedStage4BaseEnvCfg):
+    """Stage 4a: small roll targets with zero target yaw rate."""
+
+    def __post_init__(self):
+        super().__post_init__()
+        self._set_roll_curriculum(STAGE4A_ROLL_COMMAND_RANGE, 0.4)
+
+
+@configclass
+class WheeledLeggedStage4bEnvCfg(WheeledLeggedStage4BaseEnvCfg):
+    """Stage 4b: medium roll targets with zero target yaw rate."""
+
+    def __post_init__(self):
+        super().__post_init__()
+        self._set_roll_curriculum(STAGE4B_ROLL_COMMAND_RANGE, 0.6)
+
+
+@configclass
+class WheeledLeggedStage4cEnvCfg(WheeledLeggedStage4BaseEnvCfg):
+    """Stage 4c: height-conditioned roll targets with zero target yaw rate."""
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.commands.base_roll = mdp.HeightConditionedRollCommandCfg(
+            resampling_time_range=(8.0, 12.0),
+            ranges=STAGE4C_ROLL_COMMAND_RANGE,
+            element_name="roll",
+            height_command_name="base_height",
+            height_range=STAGE3D_HEIGHT_COMMAND_RANGE,
+            center_height=NOMINAL_HEIGHT,
+            center_roll_limit=STAGE4C_ROLL_COMMAND_RANGE[1],
+            edge_roll_limit=STAGE4C_EDGE_ROLL_LIMIT,
+        )
+        self.rewards.track_roll_exp.weight = 0.8
+
+
+@configclass
+class WheeledLeggedStage4EnvCfg(WheeledLeggedStage4cEnvCfg):
+    """Stage 4 final alias: full roll range with zero target yaw rate."""
+
+    pass
+
+
+@configclass
+class WheeledLeggedStage5BaseEnvCfg(WheeledLeggedStage4cEnvCfg):
+    """Base Stage 5 settings: reintroduce yaw-rate tracking under height-conditioned roll targets."""
+
+    def _set_yaw_curriculum(self, yaw_rate_range: tuple[float, float], yaw_weight: float):
+        self.commands.base_velocity.ranges.ang_vel_z = yaw_rate_range
+        self.rewards.track_ang_vel_z_exp.weight = yaw_weight
+
+
+@configclass
+class WheeledLeggedStage5aEnvCfg(WheeledLeggedStage5BaseEnvCfg):
+    """Stage 5a: small yaw-rate targets with full height and height-conditioned roll."""
+
+    def __post_init__(self):
+        super().__post_init__()
+        self._set_yaw_curriculum(STAGE5A_YAW_RATE_RANGE, 0.3)
+
+
+@configclass
+class WheeledLeggedStage5bEnvCfg(WheeledLeggedStage5BaseEnvCfg):
+    """Stage 5b: medium yaw-rate targets with full height and height-conditioned roll."""
+
+    def __post_init__(self):
+        super().__post_init__()
+        self._set_yaw_curriculum(STAGE5B_YAW_RATE_RANGE, 0.4)
+
+
+@configclass
+class WheeledLeggedStage5cEnvCfg(WheeledLeggedStage5BaseEnvCfg):
+    """Stage 5c: full yaw-rate targets with full height and height-conditioned roll."""
+
+    def __post_init__(self):
+        super().__post_init__()
+        self._set_yaw_curriculum(STAGE5C_YAW_RATE_RANGE, 0.5)
+
+
+@configclass
+class WheeledLeggedStage5EnvCfg(WheeledLeggedStage5cEnvCfg):
+    """Stage 5 final alias: full yaw-rate range with height-conditioned roll targets."""
+
+    pass
+
+
+@configclass
+class WheeledLeggedStage6BaseEnvCfg(WheeledLeggedStage3dEnvCfg):
+    """Base Stage 6 settings: rate-limited commands for sim-to-real control adaptation."""
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.commands.base_height = mdp.SmoothScalarCommandCfg(
+            resampling_time_range=STAGE6_COMMAND_RESAMPLING_TIME,
+            ranges=STAGE3D_HEIGHT_COMMAND_RANGE,
+            element_name="height",
+            rate_limit=STAGE6_HEIGHT_RATE_LIMIT,
+        )
+        self.commands.base_roll = mdp.SmoothScalarCommandCfg(
+            resampling_time_range=STAGE6_COMMAND_RESAMPLING_TIME,
+            ranges=(0.0, 0.0),
+            element_name="roll",
+            rate_limit=STAGE6_ROLL_RATE_LIMIT,
+        )
+        self.rewards.track_height_exp.weight = 1.0
+        self.rewards.track_roll_exp.weight = 0.25
+        self.rewards.lin_vel_z_l2.weight = -0.45
+        self.rewards.track_ang_vel_z_exp.weight = 0.2
+
+    def _set_smooth_velocity_command(self, yaw_rate_range: tuple[float, float], yaw_weight: float):
+        self.commands.base_velocity = mdp.SmoothVelocityCommandCfg(
+            asset_name="robot",
+            resampling_time_range=STAGE6_COMMAND_RESAMPLING_TIME,
+            rel_standing_envs=0.05,
+            rel_heading_envs=0.0,
+            heading_command=False,
+            debug_vis=True,
+            ranges=mdp.SmoothVelocityCommandCfg.Ranges(
+                lin_vel_x=(-0.6, 0.6),
+                lin_vel_y=(0.0, 0.0),
+                ang_vel_z=yaw_rate_range,
+                heading=(0.0, 0.0),
+            ),
+            rate_limits=STAGE6_VELOCITY_RATE_LIMITS,
+        )
+        self.rewards.track_ang_vel_z_exp.weight = yaw_weight
+
+
+@configclass
+class WheeledLeggedStage6aEnvCfg(WheeledLeggedStage6BaseEnvCfg):
+    """Stage 6a: smooth forward velocity and height commands with zero target yaw and roll."""
+
+    def __post_init__(self):
+        super().__post_init__()
+        self._set_smooth_velocity_command((0.0, 0.0), 0.2)
+
+
+@configclass
+class WheeledLeggedStage6bEnvCfg(WheeledLeggedStage6BaseEnvCfg):
+    """Stage 6b: smooth forward velocity, yaw-rate, and height commands with zero roll."""
+
+    def __post_init__(self):
+        super().__post_init__()
+        self._set_smooth_velocity_command(STAGE5C_YAW_RATE_RANGE, 0.5)
+
+
+@configclass
+class WheeledLeggedStage6cEnvCfg(WheeledLeggedStage6bEnvCfg):
+    """Stage 6c: optional small smooth roll display commands on top of Stage 6b."""
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.commands.base_roll.ranges = STAGE6_ROLL_DEMO_RANGE
+        self.rewards.track_roll_exp.weight = 0.35
+
+
+@configclass
+class WheeledLeggedStage6EnvCfg(WheeledLeggedStage6bEnvCfg):
+    """Stage 6 final alias: real-control adaptation without random roll display commands."""
+
+    pass

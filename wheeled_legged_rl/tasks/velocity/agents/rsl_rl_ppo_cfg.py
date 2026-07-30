@@ -42,11 +42,31 @@ class WheeledLeggedStage2PPORunnerCfg(WheeledLeggedStage1PPORunnerCfg):
 
 
 @configclass
-class WheeledLeggedStage3PPORunnerCfg(WheeledLeggedStage2PPORunnerCfg):
+class WheeledLeggedStage3aPPORunnerCfg(WheeledLeggedStage2PPORunnerCfg):
     def __post_init__(self):
         super().__post_init__()
-        self.max_iterations = 1000
-        self.experiment_name = "wheeled_legged_stage3"
+        self.max_iterations = 400
+        self.experiment_name = "wheeled_legged_stage3_curriculum"
+
+
+@configclass
+class WheeledLeggedStage3bPPORunnerCfg(WheeledLeggedStage3aPPORunnerCfg):
+    pass
+
+
+@configclass
+class WheeledLeggedStage3cPPORunnerCfg(WheeledLeggedStage3aPPORunnerCfg):
+    pass
+
+
+@configclass
+class WheeledLeggedStage3dPPORunnerCfg(WheeledLeggedStage3aPPORunnerCfg):
+    pass
+
+
+@configclass
+class WheeledLeggedStage3PPORunnerCfg(WheeledLeggedStage3dPPORunnerCfg):
+    pass
 
 
 @configclass
@@ -56,3 +76,63 @@ class WheeledLeggedStage4PPORunnerCfg(WheeledLeggedStage3PPORunnerCfg):
         self.max_iterations = 1200
         self.experiment_name = "wheeled_legged_stage4"
 
+
+@configclass
+class WheeledLeggedStage4aPPORunnerCfg(WheeledLeggedStage4PPORunnerCfg):
+    pass
+
+
+@configclass
+class WheeledLeggedStage4bPPORunnerCfg(WheeledLeggedStage4PPORunnerCfg):
+    pass
+
+
+@configclass
+class WheeledLeggedStage4cPPORunnerCfg(WheeledLeggedStage4PPORunnerCfg):
+    pass
+
+
+@configclass
+class WheeledLeggedStage5PPORunnerCfg(WheeledLeggedStage4PPORunnerCfg):
+    def __post_init__(self):
+        super().__post_init__()
+        self.max_iterations = 1200
+        self.experiment_name = "wheeled_legged_stage5"
+
+
+@configclass
+class WheeledLeggedStage5aPPORunnerCfg(WheeledLeggedStage5PPORunnerCfg):
+    pass
+
+
+@configclass
+class WheeledLeggedStage5bPPORunnerCfg(WheeledLeggedStage5PPORunnerCfg):
+    pass
+
+
+@configclass
+class WheeledLeggedStage5cPPORunnerCfg(WheeledLeggedStage5PPORunnerCfg):
+    pass
+
+
+@configclass
+class WheeledLeggedStage6PPORunnerCfg(WheeledLeggedStage5PPORunnerCfg):
+    def __post_init__(self):
+        super().__post_init__()
+        self.max_iterations = 1200
+        self.experiment_name = "wheeled_legged_stage6"
+
+
+@configclass
+class WheeledLeggedStage6aPPORunnerCfg(WheeledLeggedStage6PPORunnerCfg):
+    pass
+
+
+@configclass
+class WheeledLeggedStage6bPPORunnerCfg(WheeledLeggedStage6PPORunnerCfg):
+    pass
+
+
+@configclass
+class WheeledLeggedStage6cPPORunnerCfg(WheeledLeggedStage6PPORunnerCfg):
+    pass

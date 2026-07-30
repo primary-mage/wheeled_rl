@@ -29,14 +29,17 @@ from isaaclab.envs.mdp.rewards import (
 )
 from isaaclab.envs.mdp.terminations import time_out
 
-from .commands import UniformScalarCommandCfg
+from .commands import HeightConditionedRollCommandCfg, SmoothScalarCommandCfg, SmoothVelocityCommandCfg, UniformScalarCommandCfg
 from .events import set_joint_targets_to_default
 from .observations import base_height, base_roll, constant_command
-from .rewards import lateral_lin_vel_l2, pitch_l2, track_base_height_exp, track_base_roll_exp
+from .rewards import lateral_lin_vel_l2, pitch_l2, track_base_height_exp, track_base_roll_exp, wheel_forward_alignment_l2
 from .terminations import root_height_out_of_bounds, root_orientation_out_of_bounds
 
 __all__ = [
     "JointPositionActionCfg",
+    "HeightConditionedRollCommandCfg",
+    "SmoothScalarCommandCfg",
+    "SmoothVelocityCommandCfg",
     "UniformScalarCommandCfg",
     "JointVelocityActionCfg",
     "UniformVelocityCommandCfg",
@@ -70,4 +73,5 @@ __all__ = [
     "track_base_height_exp",
     "track_base_roll_exp",
     "track_lin_vel_xy_exp",
+    "wheel_forward_alignment_l2",
 ]

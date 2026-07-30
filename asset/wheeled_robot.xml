@@ -33,15 +33,16 @@
     <body name="base_link" pos="0 0 0.5">
       <freejoint
         name="root" />
-      <inertial pos="-0.00023377 -8.7665e-05 -0.0089819" mass="0.94"
-        diaginertia="0.003618 0.002836 0.00106" />
+      <inertial pos="-8.7665e-05 0.00023377 -0.0089819" mass="0.94"
+        diaginertia="0.002836 0.003618 0.00106" />
       <geom name="base_link_visual" type="mesh" rgba="0.79216 0.81961 0.93333 1" mesh="base_link"
-        contype="0" conaffinity="0" density="0" group="1" />
-      <geom name="base_link_collision" type="box" size="0.138 0.053 0.025" rgba="0 0.8 0.2 0.25"
+        quat="0.70710678 0 0 -0.70710678" contype="0" conaffinity="0" density="0"
+        group="1" />
+      <geom name="base_link_collision" type="box" size="0.053 0.138 0.025" rgba="0 0.8 0.2 0.25"
         group="3" />
 
       <!-- 以下子节点层级与原先完全一致，只是整体缩进到了 base_link 内部 -->
-      <body name="left_leg" pos="-0.1148 0 -0.04075" quat="0.499998 0.5 -0.500002 -0.5">
+      <body name="left_leg" pos="0 0.1148 -0.04075" quat="0 0 0.70710678 0.70710678">
         <inertial pos="0.014085 -0.086343 -0.017864" quat="0.704744 0.699928 0.079862 0.084017"
           mass="0.11866" diaginertia="0.00022805 0.000205989 3.64827e-05" />
         <joint name="servo2" pos="0 0 0" axis="0 0 1" range="-1.57 1.57" actuatorfrcrange="-5 5"
@@ -75,7 +76,7 @@
         </body>
       </body>
 
-      <body name="right_leg" pos="0.1148 0 -0.04075" quat="0.499998 0.5 0.500002 0.5">
+      <body name="right_leg" pos="0 -0.1148 -0.04075" quat="0.70710678 0.70710678 0 0">
         <inertial pos="-0.014085 -0.086343 -0.017864" quat="0.704744 0.699928 -0.079862 -0.084017"
           mass="0.11866" diaginertia="0.00022805 0.000205989 3.64827e-05" />
         <joint name="servo4" pos="0 0 0" axis="0 0 -1" range="-1.57 1.57" actuatorfrcrange="-5 5"
