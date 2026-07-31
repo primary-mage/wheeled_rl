@@ -1,6 +1,7 @@
 """Manager-based velocity/height/roll training configs for the wheeled-legged robot."""
 
 import math
+from pathlib import Path
 
 from isaaclab_physx.physics import PhysxCfg
 
@@ -24,7 +25,8 @@ from isaaclab.utils.noise import UniformNoiseCfg as Unoise
 import wheeled_legged_rl.tasks.velocity.mdp as mdp
 
 
-USD_PATH = "/home/mage/projects/wheeled_legged_rl/asset/usd/wheeled_robot/wheeled_robot.usda"
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+USD_PATH = str(PROJECT_ROOT / "asset" / "usd" / "wheeled_robot" / "wheeled_robot.usda")
 NOMINAL_HEIGHT = 0.270
 NOMINAL_ROLL = 0.0
 STAGE3A_HEIGHT_COMMAND_RANGE = (0.24, 0.30)
