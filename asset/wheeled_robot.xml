@@ -144,9 +144,9 @@
     <!-- 轮毂电机：速度控制 -->
     <!-- kv 是速度环的增益。ctrlrange 代表你期望的最大角速度 (rad/s) -->
     <velocity name="vel_wheel1" joint="wheel1" ctrllimited="true" ctrlrange="-20 20" kv="2"
-      forcerange="-5 5" />
+      forcerange="-2 2" />
     <velocity name="vel_wheel2" joint="wheel2" ctrllimited="true" ctrlrange="-20 20" kv="2"
-      forcerange="-5 5" />
+      forcerange="-2 2" />
   </actuator>
 
 </mujoco>

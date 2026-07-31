@@ -98,7 +98,8 @@ WHEELED_LEGGED_CFG = ArticulationCfg(
         ),
         "wheel_velocity": DelayedPDActuatorCfg(
             joint_names_expr=["wheel.*"],
-            effort_limit_sim=5.0,
+            effort_limit=2.0,
+            effort_limit_sim=2.0,
             velocity_limit_sim=20.0,
             stiffness=0.0,
             damping=2.0,

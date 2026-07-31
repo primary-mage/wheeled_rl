@@ -13,7 +13,7 @@ import torch
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MODEL = PROJECT_ROOT / "asset" / "wheeled_robot.xml"
-DEFAULT_CHECKPOINT = PROJECT_ROOT / "logs" / "6d" / "model_5691.pt"
+DEFAULT_CHECKPOINT = PROJECT_ROOT / "logs" / "stage3_stance" / "model_1998.pt"
 JOINT_NAMES = ("servo2", "servo1", "servo4", "servo3", "wheel1", "wheel2")
 DEFAULT_JOINT_POS = torch.tensor((0.9, -1.9, 0.9, -1.9, 0.0, 0.0), dtype=torch.float32)
 LEG_ACTION_SCALE = torch.tensor((1.6, 1.25, 1.6, 1.25), dtype=torch.float32)
