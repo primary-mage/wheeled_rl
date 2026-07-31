@@ -71,6 +71,7 @@ class DiagnosticLogger:
             "root_ang_vel_b": _first_env(getattr(data, "root_ang_vel_b", None)),
             "joint_pos": [],
             "joint_vel": [],
+            "computed_torque": _first_env(getattr(data, "computed_torque", None)),
             "applied_torque": _first_env(getattr(data, "applied_torque", None)),
             "net_forces_w": _first_env(
                 getattr(data, "net_forces_w", getattr(data, "contact_forces_w", None))
@@ -102,6 +103,7 @@ class DiagnosticLogger:
                 *(f"root_ang_vel_b_{i}" for i in range(len(state["root_ang_vel_b"]))),
                 *(f"joint_pos_{name}" for name in JOINT_NAMES),
                 *(f"joint_vel_{name}" for name in JOINT_NAMES),
+                *(f"computed_torque_{i}" for i in range(len(state["computed_torque"]))),
                 *(f"applied_torque_{i}" for i in range(len(state["applied_torque"]))),
                 *(f"net_force_w_{i}" for i in range(len(state["net_forces_w"]))),
             ]
@@ -118,6 +120,7 @@ class DiagnosticLogger:
             *state["root_ang_vel_b"],
             *state["joint_pos"],
             *state["joint_vel"],
+            *state["computed_torque"],
             *state["applied_torque"],
             *state["net_forces_w"],
         ]

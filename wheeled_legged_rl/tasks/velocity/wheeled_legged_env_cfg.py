@@ -548,7 +548,17 @@ class WheeledLeggedStage3EnvCfg_PLAY(WheeledLeggedStage3EnvCfg):
         self.events.physics_material = None
         self.events.randomize_body_mass = None
         self.events.randomize_base_com = None
-        self.events.reset_base = None
+        # Keep the training reset path for playback initialization.  Make it
+        # deterministic so this test isolates the root-height initialization.
+        self.events.reset_base.params["pose_range"] = {"x": (0.0, 0.0), "y": (0.0, 0.0), "yaw": (0.0, 0.0)}
+        self.events.reset_base.params["velocity_range"] = {
+            "x": (0.0, 0.0),
+            "y": (0.0, 0.0),
+            "z": (0.0, 0.0),
+            "roll": (0.0, 0.0),
+            "pitch": (0.0, 0.0),
+            "yaw": (0.0, 0.0),
+        }
         self.events.reset_robot_joints = None
         self.events.hold_leg_joint_targets = None
         self.events.push_robot = None
