@@ -3,7 +3,7 @@
 import torch
 
 from isaaclab.managers import SceneEntityCfg
-from isaaclab.utils.math import euler_xyz_from_quat
+from isaaclab.utils.math import euler_xyz_from_quat, quat_apply_inverse
 
 
 def root_height_out_of_bounds(
@@ -28,3 +28,21 @@ def root_orientation_out_of_bounds(
     roll, pitch, _ = euler_xyz_from_quat(asset.data.root_quat_w.torch)
     return torch.logical_or(torch.abs(roll) > roll_limit, torch.abs(pitch) > pitch_limit)
 
+
+def wheel_forward_offset_too_large(
+    env,
+    max_offset: float,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg(
+        "robot",
+        body_names=["left_wheel", "right_wheel"],
+        preserve_order=True,
+    ),
+) -> torch.Tensor:
+    """Terminate when the wheel centers form a large fore-aft scissor offset."""
+    asset = env.scene[asset_cfg.name]
+    wheel_pos_w = asset.data.body_pos_w.torch[:, asset_cfg.body_ids, :]
+    wheel_pos_b = quat_apply_inverse(
+        asset.data.root_quat_w.torch[:, None, :].expand(-1, wheel_pos_w.shape[1], -1),
+        wheel_pos_w - asset.data.root_pos_w.torch[:, None, :],
+    )
+    return torch.abs(wheel_pos_b[:, 0, 0] - wheel_pos_b[:, 1, 0]) > max_offset

@@ -4,6 +4,8 @@ from isaaclab.envs.mdp.actions.actions_cfg import JointPositionActionCfg, JointV
 from isaaclab.envs.mdp.commands.commands_cfg import UniformVelocityCommandCfg
 from isaaclab.envs.mdp.events import (
     push_by_setting_velocity,
+    randomize_rigid_body_com,
+    randomize_rigid_body_mass,
     randomize_rigid_body_material,
     reset_joints_by_offset,
     reset_root_state_uniform,
@@ -32,8 +34,8 @@ from isaaclab.envs.mdp.terminations import time_out
 from .commands import HeightConditionedRollCommandCfg, SmoothScalarCommandCfg, SmoothVelocityCommandCfg, UniformScalarCommandCfg
 from .events import set_joint_targets_to_default
 from .observations import base_height, base_roll, constant_command
-from .rewards import lateral_lin_vel_l2, pitch_l2, track_base_height_exp, track_base_roll_exp, wheel_forward_alignment_l2
-from .terminations import root_height_out_of_bounds, root_orientation_out_of_bounds
+from .rewards import leg_joint_symmetry_l2, lateral_lin_vel_l2, pitch_l2, track_base_height_exp, track_base_roll_exp, wheel_forward_alignment_l2
+from .terminations import root_height_out_of_bounds, root_orientation_out_of_bounds, wheel_forward_offset_too_large
 
 __all__ = [
     "JointPositionActionCfg",
@@ -56,6 +58,7 @@ __all__ = [
     "joint_pos_rel",
     "joint_torques_l2",
     "joint_vel_rel",
+    "leg_joint_symmetry_l2",
     "last_action",
     "lateral_lin_vel_l2",
     "lin_vel_z_l2",
@@ -63,10 +66,13 @@ __all__ = [
     "projected_gravity",
     "push_by_setting_velocity",
     "randomize_rigid_body_material",
+    "randomize_rigid_body_com",
+    "randomize_rigid_body_mass",
     "reset_joints_by_offset",
     "reset_root_state_uniform",
     "root_height_out_of_bounds",
     "root_orientation_out_of_bounds",
+    "wheel_forward_offset_too_large",
     "set_joint_targets_to_default",
     "time_out",
     "track_ang_vel_z_exp",

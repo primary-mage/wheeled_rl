@@ -75,3 +75,17 @@ def wheel_forward_alignment_l2(
         wheel_pos_w - asset.data.root_pos_w.torch[:, None, :],
     )
     return torch.square(wheel_pos_b[:, 0, forward_axis] - wheel_pos_b[:, 1, forward_axis])
+
+
+def leg_joint_symmetry_l2(
+    env,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg(
+        "robot",
+        joint_names=["servo2", "servo1", "servo4", "servo3"],
+        preserve_order=True,
+    ),
+) -> torch.Tensor:
+    """Penalize left-right leg joint mismatch in the nominally symmetric pose."""
+    asset = env.scene[asset_cfg.name]
+    joint_pos = asset.data.joint_pos[:, asset_cfg.joint_ids]
+    return torch.square(joint_pos[:, 0] - joint_pos[:, 2]) + torch.square(joint_pos[:, 1] - joint_pos[:, 3])

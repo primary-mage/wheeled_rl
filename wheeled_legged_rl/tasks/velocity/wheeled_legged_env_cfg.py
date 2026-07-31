@@ -5,7 +5,7 @@ import math
 from isaaclab_physx.physics import PhysxCfg
 
 import isaaclab.sim as sim_utils
-from isaaclab.actuators import ImplicitActuatorCfg
+from isaaclab.actuators import DelayedPDActuatorCfg
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg
 from isaaclab.envs import ManagerBasedRLEnvCfg
 from isaaclab.managers import CurriculumTermCfg as CurrTerm
@@ -84,21 +84,25 @@ WHEELED_LEGGED_CFG = ArticulationCfg(
         },
     ),
     actuators={
-        "leg_position": ImplicitActuatorCfg(
+        "leg_position": DelayedPDActuatorCfg(
             joint_names_expr=["servo.*"],
-            effort_limit_sim=5.0,
+            effort_limit_sim=2.0,
             velocity_limit_sim=10.0,
             stiffness=10.0,
             damping=2.0,
             armature=0.01,
+            min_delay=0,
+            max_delay=4,
         ),
-        "wheel_velocity": ImplicitActuatorCfg(
+        "wheel_velocity": DelayedPDActuatorCfg(
             joint_names_expr=["wheel.*"],
             effort_limit_sim=5.0,
             velocity_limit_sim=20.0,
             stiffness=0.0,
             damping=2.0,
             armature=0.01,
+            min_delay=0,
+            max_delay=4,
         ),
     },
 )
@@ -242,11 +246,30 @@ class EventsCfg:
         func=mdp.randomize_rigid_body_material,
         mode="startup",
         params={
-            "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
+            "asset_cfg": SceneEntityCfg("robot", body_names=["left_wheel", "right_wheel"]),
             "static_friction_range": (0.8, 1.2),
             "dynamic_friction_range": (0.6, 1.0),
             "restitution_range": (0.0, 0.0),
             "num_buckets": 32,
+        },
+    )
+    randomize_body_mass = EventTerm(
+        func=mdp.randomize_rigid_body_mass,
+        mode="startup",
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
+            "mass_distribution_params": (0.9, 1.1),
+            "operation": "scale",
+            "distribution": "uniform",
+            "recompute_inertia": True,
+        },
+    )
+    randomize_base_com = EventTerm(
+        func=mdp.randomize_rigid_body_com,
+        mode="startup",
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names=["base_link"]),
+            "com_range": {"x": (-0.01, 0.01), "y": (-0.01, 0.01), "z": (-0.01, 0.01)},
         },
     )
     reset_base = EventTerm(
@@ -332,6 +355,17 @@ class RewardsCfg:
             ),
         },
     )
+    leg_joint_symmetry_l2 = RewTerm(
+        func=mdp.leg_joint_symmetry_l2,
+        weight=0.0,
+        params={
+            "asset_cfg": SceneEntityCfg(
+                "robot",
+                joint_names=["servo2", "servo1", "servo4", "servo3"],
+                preserve_order=True,
+            ),
+        },
+    )
     ang_vel_xy_l2 = RewTerm(func=mdp.ang_vel_xy_l2, weight=-0.05)
     pitch_l2 = RewTerm(func=mdp.pitch_l2, weight=-0.5)
     dof_torques_l2 = RewTerm(func=mdp.joint_torques_l2, weight=-2.5e-5)
@@ -350,6 +384,7 @@ class TerminationsCfg:
         func=mdp.root_orientation_out_of_bounds,
         params={"roll_limit": 0.75, "pitch_limit": 0.75},
     )
+    wheel_scissor: DoneTerm | None = None
 
 
 @configclass
@@ -361,12 +396,12 @@ class CurriculumCfg:
 
 @configclass
 class WheeledLeggedStage1EnvCfg(ManagerBasedRLEnvCfg):
-    """Stage 1: low-speed forward/backward tracking at fixed height and roll."""
+    """Stage 1: fixed-height velocity tracking with symmetric leg control."""
 
     sim: SimulationCfg = SimulationCfg(physics=PhysxCfg(gpu_max_rigid_patch_count=10 * 2**15))
     scene: WheeledLeggedSceneCfg = WheeledLeggedSceneCfg(num_envs=2048, env_spacing=2.0, clone_in_fabric=True)
     observations: ObservationsCfg = ObservationsCfg()
-    actions: FixedLegWheelActionsCfg = FixedLegWheelActionsCfg()
+    actions: LegWheelActionsCfg = LegWheelActionsCfg()
     commands: CommandsCfg = CommandsCfg()
     rewards: RewardsCfg = RewardsCfg()
     terminations: TerminationsCfg = TerminationsCfg()
@@ -380,6 +415,21 @@ class WheeledLeggedStage1EnvCfg(ManagerBasedRLEnvCfg):
         self.sim.render_interval = self.decimation
         self.viewer.eye = (2.5, -2.5, 1.5)
         self.viewer.lookat = (0.0, 0.0, 0.3)
+        self.actions.leg_pos.scale = STAGE3_SMOOTH_LEG_ACTION_SCALE
+        self.rewards.track_height_exp.weight = 1.0
+        self.rewards.wheel_forward_alignment_l2.weight = -12.0
+        self.rewards.leg_joint_symmetry_l2.weight = -4.0
+        self.terminations.wheel_scissor = DoneTerm(
+            func=mdp.wheel_forward_offset_too_large,
+            params={
+                "max_offset": 0.06,
+                "asset_cfg": SceneEntityCfg(
+                    "robot",
+                    body_names=["left_wheel", "right_wheel"],
+                    preserve_order=True,
+                ),
+            },
+        )
 
 
 class WheeledLeggedStage1EnvCfg_PLAY(WheeledLeggedStage1EnvCfg):
@@ -393,13 +443,18 @@ class WheeledLeggedStage1EnvCfg_PLAY(WheeledLeggedStage1EnvCfg):
 
 @configclass
 class WheeledLeggedStage2EnvCfg(WheeledLeggedStage1EnvCfg):
-    """Stage 2: add yaw-rate tracking."""
+    """Stage 2: add yaw-rate tracking while retaining symmetric leg control."""
+
+    actions: LegWheelActionsCfg = LegWheelActionsCfg()
 
     def __post_init__(self):
         super().__post_init__()
+        self.actions.leg_pos.scale = STAGE3_SMOOTH_LEG_ACTION_SCALE
         self.commands.base_velocity.ranges.lin_vel_x = (-0.6, 0.6)
         self.commands.base_velocity.ranges.ang_vel_z = (-1.2, 1.2)
         self.rewards.track_ang_vel_z_exp.weight = 0.5
+        self.rewards.wheel_forward_alignment_l2.weight = -8.0
+        self.rewards.leg_joint_symmetry_l2.weight = -2.0
         self.events.push_robot.params["velocity_range"] = {"x": (-0.3, 0.3), "y": (-0.15, 0.15), "yaw": (-0.3, 0.3)}
 
 
