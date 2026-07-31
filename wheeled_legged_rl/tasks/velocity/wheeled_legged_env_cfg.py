@@ -538,6 +538,24 @@ class WheeledLeggedStage3EnvCfg(WheeledLeggedStage3dEnvCfg):
 
 
 @configclass
+class WheeledLeggedStage3EnvCfg_PLAY(WheeledLeggedStage3EnvCfg):
+    """Deterministic Stage 3 playback configuration for cross-simulator logging."""
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.scene.num_envs = 1
+        self.observations.policy.enable_corruption = False
+        self.events.physics_material = None
+        self.events.randomize_body_mass = None
+        self.events.randomize_base_com = None
+        self.events.reset_base = None
+        self.events.reset_robot_joints = None
+        self.events.hold_leg_joint_targets = None
+        self.events.push_robot = None
+        self.events.stance_wrench_pulse = None
+
+
+@configclass
 class WheeledLeggedStage4BaseEnvCfg(WheeledLeggedStage3EnvCfg):
     """Base Stage 4 settings: train roll tracking while holding target yaw rate at zero."""
 
