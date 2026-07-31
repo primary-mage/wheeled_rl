@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Replay the Stage 6 RSL-RL policy in MuJoCo without Isaac Lab."""
+"""Replay an RSL-RL policy in MuJoCo without Isaac Lab."""
 
 from __future__ import annotations
 
@@ -52,6 +52,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--realtime", action="store_true", help="Throttle the simulation to wall-clock time.")
     parser.add_argument("--render-fps", type=float, default=60.0, help="Viewer refresh rate; independent of physics rate.")
     parser.add_argument("--torch-threads", type=int, default=1, help="CPU threads used by the small policy network.")
+    parser.add_argument(
+        "--action-delay-steps",
+        type=int,
+        default=4,
+        help="Actuator command delay in MuJoCo physics steps; Isaac training samples 0-4 steps.",
+    )
     return parser.parse_args()
 
 
@@ -122,6 +128,8 @@ def reset(model: mujoco.MjModel, data: mujoco.MjData, joint_qpos_ids: list[int])
 def run(args: argparse.Namespace) -> None:
     if args.render_fps <= 0:
         raise ValueError("--render-fps must be positive")
+    if args.action_delay_steps < 0:
+        raise ValueError("--action-delay-steps must be non-negative")
     torch.set_num_threads(args.torch_threads)
     model = mujoco.MjModel.from_xml_path(str(args.model))
     data = mujoco.MjData(model)
@@ -139,8 +147,14 @@ def run(args: argparse.Namespace) -> None:
     reset(model, data, joint_qpos_ids)
     print(
         f"Loaded {args.checkpoint.name}; physics dt={model.opt.timestep:.3f}s, "
-        f"policy dt={POLICY_DT:.3f}s, torch threads={torch.get_num_threads()}"
+        f"policy dt={POLICY_DT:.3f}s, action delay={args.action_delay_steps} physics steps, "
+        f"torch threads={torch.get_num_threads()}"
     )
+
+    desired_ctrl = data.ctrl.copy()
+    desired_ctrl[actuator_ids[:4]] = DEFAULT_JOINT_POS[:4].numpy()
+    desired_ctrl[actuator_ids[4:]] = 0.0
+    delayed_ctrl = [desired_ctrl.copy() for _ in range(args.action_delay_steps)]
 
     def step_policy() -> None:
         nonlocal last_action
@@ -151,8 +165,8 @@ def run(args: argparse.Namespace) -> None:
         inference_times.append(time.perf_counter() - inference_start)
         leg_target = DEFAULT_JOINT_POS[:4] + action[:4] * LEG_ACTION_SCALE
         leg_target = torch.maximum(torch.minimum(leg_target, LEG_LIMITS[:, 1]), LEG_LIMITS[:, 0])
-        data.ctrl[actuator_ids[:4]] = leg_target.numpy()
-        data.ctrl[actuator_ids[4:]] = (action[4:] * 8.0).numpy()
+        desired_ctrl[actuator_ids[:4]] = leg_target.numpy()
+        desired_ctrl[actuator_ids[4:]] = (action[4:] * 8.0).numpy()
         last_action = action
 
     physics_steps_per_policy = round(POLICY_DT / model.opt.timestep)
@@ -174,6 +188,8 @@ def run(args: argparse.Namespace) -> None:
         for physics_step in range(total_steps):
             if physics_step % physics_steps_per_policy == 0:
                 step_policy()
+            delayed_ctrl.append(desired_ctrl.copy())
+            data.ctrl[:] = delayed_ctrl.pop(0)
             mujoco.mj_step(model, data)
             base_height = float(data.xpos[base_id, 2])
             min_height = min(min_height, base_height)
