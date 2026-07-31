@@ -127,38 +127,56 @@ class DiagnosticLogger:
 _HOOK_CLEANUP = None
 
 
+class DiagnosticEnvWrapper:
+    """Late-bound environment wrapper that does not import Isaac modules at startup."""
+
+    def __init__(self, env, logger):
+        self.env = env
+        self.logger = logger
+
+    def __getattr__(self, name):
+        return getattr(self.env, name)
+
+    @property
+    def unwrapped(self):
+        return self.env.unwrapped
+
+    def reset(self, *args, **kwargs):
+        result = self.env.reset(*args, **kwargs)
+        self.logger.set_env(self.env)
+        self.logger.set_obs(_policy_obs(result[0] if isinstance(result, tuple) else result))
+        return result
+
+    def step(self, action):
+        result = self.env.step(action)
+        self.logger.set_env(self.env)
+        self.logger.write_step(action)
+        self.logger.set_obs(_policy_obs(result[0] if isinstance(result, tuple) else result))
+        return result
+
+    def close(self):
+        return self.env.close()
+
+
 def install_diagnostic_hook():
     """Install the logger before Isaac Lab creates its environment."""
     global _HOOK_CLEANUP
     if _HOOK_CLEANUP is not None:
         return _HOOK_CLEANUP
 
-    from isaaclab.envs import ManagerBasedRLEnv
+    import gymnasium as gym
 
     logger = DiagnosticLogger(LOG_PATH)
-    original_reset = ManagerBasedRLEnv.reset
-    original_step = ManagerBasedRLEnv.step
+    original_make = gym.make
 
-    def reset(env, *args, **kwargs):
-        result = original_reset(env, *args, **kwargs)
-        logger.set_env(env)
-        logger.set_obs(_policy_obs(result[0] if isinstance(result, tuple) else result))
-        return result
+    def make(*args, **kwargs):
+        return DiagnosticEnvWrapper(original_make(*args, **kwargs), logger)
 
-    def step(env, action):
-        logger.set_env(env)
-        result = original_step(env, action)
-        logger.write_step(action)
-        logger.set_obs(_policy_obs(result[0] if isinstance(result, tuple) else result))
-        return result
-
-    ManagerBasedRLEnv.reset = reset
-    ManagerBasedRLEnv.step = step
+    gym.make = make
 
     def cleanup():
         global _HOOK_CLEANUP
-        ManagerBasedRLEnv.reset = original_reset
-        ManagerBasedRLEnv.step = original_step
+        gym.make = original_make
         logger.close()
         _HOOK_CLEANUP = None
 
