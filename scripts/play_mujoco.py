@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Replay the Stage 6 RSL-RL policy in MuJoCo without Isaac Lab."""
+"""Replay an RSL-RL policy in MuJoCo without Isaac Lab."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ import torch
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MODEL = PROJECT_ROOT / "asset" / "wheeled_robot.xml"
-DEFAULT_CHECKPOINT = PROJECT_ROOT / "logs" / "6d" / "model_5691.pt"
+DEFAULT_CHECKPOINT = PROJECT_ROOT / "logs" / "stage3_stance" / "model_1998.pt"
 JOINT_NAMES = ("servo2", "servo1", "servo4", "servo3", "wheel1", "wheel2")
 DEFAULT_JOINT_POS = torch.tensor((0.9, -1.9, 0.9, -1.9, 0.0, 0.0), dtype=torch.float32)
 LEG_ACTION_SCALE = torch.tensor((1.6, 1.25, 1.6, 1.25), dtype=torch.float32)
@@ -50,8 +50,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--duration", type=float, default=60.0, help="Replay duration in seconds.")
     parser.add_argument("--headless", action="store_true", help="Run without opening the MuJoCo viewer.")
     parser.add_argument("--realtime", action="store_true", help="Throttle the simulation to wall-clock time.")
+    parser.add_argument(
+        "--time-scale",
+        type=float,
+        default=1.0,
+        help="Wall-clock playback speed when --realtime is enabled (0.25 = quarter speed).",
+    )
     parser.add_argument("--render-fps", type=float, default=60.0, help="Viewer refresh rate; independent of physics rate.")
     parser.add_argument("--torch-threads", type=int, default=1, help="CPU threads used by the small policy network.")
+    parser.add_argument(
+        "--action-delay-steps",
+        type=int,
+        default=4,
+        help="Actuator command delay in MuJoCo physics steps; Isaac training samples 0-4 steps.",
+    )
     return parser.parse_args()
 
 
@@ -122,6 +134,10 @@ def reset(model: mujoco.MjModel, data: mujoco.MjData, joint_qpos_ids: list[int])
 def run(args: argparse.Namespace) -> None:
     if args.render_fps <= 0:
         raise ValueError("--render-fps must be positive")
+    if args.time_scale <= 0:
+        raise ValueError("--time-scale must be positive")
+    if args.action_delay_steps < 0:
+        raise ValueError("--action-delay-steps must be non-negative")
     torch.set_num_threads(args.torch_threads)
     model = mujoco.MjModel.from_xml_path(str(args.model))
     data = mujoco.MjData(model)
@@ -139,8 +155,14 @@ def run(args: argparse.Namespace) -> None:
     reset(model, data, joint_qpos_ids)
     print(
         f"Loaded {args.checkpoint.name}; physics dt={model.opt.timestep:.3f}s, "
-        f"policy dt={POLICY_DT:.3f}s, torch threads={torch.get_num_threads()}"
+        f"policy dt={POLICY_DT:.3f}s, action delay={args.action_delay_steps} physics steps, "
+        f"torch threads={torch.get_num_threads()}"
     )
+
+    desired_ctrl = data.ctrl.copy()
+    desired_ctrl[actuator_ids[:4]] = DEFAULT_JOINT_POS[:4].numpy()
+    desired_ctrl[actuator_ids[4:]] = 0.0
+    delayed_ctrl = [desired_ctrl.copy() for _ in range(args.action_delay_steps)]
 
     def step_policy() -> None:
         nonlocal last_action
@@ -151,8 +173,8 @@ def run(args: argparse.Namespace) -> None:
         inference_times.append(time.perf_counter() - inference_start)
         leg_target = DEFAULT_JOINT_POS[:4] + action[:4] * LEG_ACTION_SCALE
         leg_target = torch.maximum(torch.minimum(leg_target, LEG_LIMITS[:, 1]), LEG_LIMITS[:, 0])
-        data.ctrl[actuator_ids[:4]] = leg_target.numpy()
-        data.ctrl[actuator_ids[4:]] = (action[4:] * 8.0).numpy()
+        desired_ctrl[actuator_ids[:4]] = leg_target.numpy()
+        desired_ctrl[actuator_ids[4:]] = (action[4:] * 8.0).numpy()
         last_action = action
 
     physics_steps_per_policy = round(POLICY_DT / model.opt.timestep)
@@ -174,6 +196,8 @@ def run(args: argparse.Namespace) -> None:
         for physics_step in range(total_steps):
             if physics_step % physics_steps_per_policy == 0:
                 step_policy()
+            delayed_ctrl.append(desired_ctrl.copy())
+            data.ctrl[:] = delayed_ctrl.pop(0)
             mujoco.mj_step(model, data)
             base_height = float(data.xpos[base_id, 2])
             min_height = min(min_height, base_height)
@@ -185,7 +209,7 @@ def run(args: argparse.Namespace) -> None:
                 viewer.sync()
                 next_render_time = data.time + 1.0 / args.render_fps
             if args.realtime:
-                deadline = wall_start + (data.time - sim_start)
+                deadline = wall_start + (data.time - sim_start) / args.time_scale
                 remaining = deadline - time.perf_counter()
                 if remaining > 0:
                     time.sleep(remaining)

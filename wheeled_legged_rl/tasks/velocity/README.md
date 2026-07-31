@@ -10,6 +10,7 @@ The robot base frame follows the Isaac/ROS-style convention: `+X` forward, `+Y` 
 - `Isaac-WheeledLegged-Stage2-v0`: adds yaw-rate tracking.
 - `Isaac-WheeledLegged-Stage3a-v0` through `Stage3d-v0`: fixed-height static stance recovery under intermittent wrench pulses.
 - `Isaac-WheeledLegged-Stage3-v0`: alias for the static stance task.
+- `Isaac-WheeledLegged-Stage3-Play-v0`: deterministic Stage 3 playback with randomization and external disturbances disabled.
 - `Isaac-WheeledLegged-Stage4a-v0`: adds small roll targets while holding yaw-rate targets at zero.
 - `Isaac-WheeledLegged-Stage4b-v0`: expands roll targets while holding yaw-rate targets at zero.
 - `Isaac-WheeledLegged-Stage4c-v0`: trains height-conditioned roll targets while holding yaw-rate targets at zero.

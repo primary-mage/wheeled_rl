@@ -2,7 +2,8 @@
   <compiler angle="radian" />
 
   <!-- 强化学习推荐配置：更小的时间步长，确立重力 -->
-  <option timestep="0.002" gravity="0 0 -9.81" />
+  <!-- Isaac Lab: sim.dt=0.005, PhysX position iterations=8. -->
+  <option timestep="0.005" gravity="0 0 -9.81" iterations="8" />
   <visual>
     <rgba haze="0.4 0.6 0.8 1" />
   </visual>
@@ -30,7 +31,8 @@
   <worldbody>
     <!-- 1. 添加灯光和地板 -->
     <light pos="0 0 1.5" dir="0 0 -1" directional="true" />
-    <geom name="ground" type="plane" size="10 10 0.1" material="matplane" friction="0.5 0.005 0.0001" />
+    <!-- MuJoCo has one sliding coefficient; 0.8 is the Isaac dynamic-friction nominal. -->
+    <geom name="ground" type="plane" size="10 10 0.1" material="matplane" friction="0.8 0.005 0.0001" />
     <body name="base_link" pos="0 0 0.5">
       <freejoint
         name="root" />
@@ -47,7 +49,7 @@
         <inertial pos="0.014085 -0.086343 -0.017864" quat="0.704744 0.699928 0.079862 0.084017"
           mass="0.11866" diaginertia="0.00022805 0.000205989 3.64827e-05" />
         <joint name="servo2" pos="0 0 0" axis="0 0 1" range="-1.57 1.57" actuatorfrcrange="-5 5"
-          damping="0.1" armature="0.01" />
+          damping="0" armature="0.01" />
         <geom name="left_leg_visual" type="mesh" rgba="0.79216 0.81961 0.93333 1" mesh="left_leg"
           contype="0" conaffinity="0" density="0" group="1" />
         <geom name="left_leg_collision" type="capsule" fromto="0.016 -0.09 -0.02 -0.006 -0.01 -0.02"
@@ -57,7 +59,7 @@
             quat="0.747777 0.663944 -0.00184553 -0.00207827" mass="0.057726"
             diaginertia="0.000135864 0.000131727 9.16446e-06" />
           <joint name="servo1" pos="0 0 0" axis="0 0 1" range="-3.14 0" actuatorfrcrange="-5 5"
-            damping="0.1" armature="0.01" />
+            damping="0" armature="0.01" />
           <geom name="left_foot_visual" type="mesh" rgba="0.79216 0.81961 0.93333 1"
             mesh="left_foot"
             contype="0" conaffinity="0" density="0" group="1" />
@@ -66,11 +68,12 @@
           <body name="left_wheel" pos="-0.00077824 -0.14 -0.00275" quat="-3.67321e-06 0 0 1">
             <inertial pos="-0.00048154 -0.00095238 0.036709" quat="0.5 0.5 -0.5 0.5" mass="0.65"
               diaginertia="0.001867884961 0.001027561414 0.001027561414" />
-            <joint name="wheel1" pos="0 0 0" axis="0 0 1" damping="0.02" armature="0.01" />
+            <joint name="wheel1" pos="0 0 0" axis="0 0 1" damping="0" armature="0.01" />
             <geom name="left_wheel_visual" type="mesh" rgba="0.79216 0.81961 0.93333 1"
               mesh="left_wheel"
               contype="0" conaffinity="0" density="0" group="1" />
             <geom name="left_wheel_collision" type="cylinder" pos="0.0 0.0 0.03" size="0.0625 0.035"
+              friction="0.8 0.005 0.0001"
               rgba="0 0.8 0.2 0.25"
               group="3" />
           </body>
@@ -81,7 +84,7 @@
         <inertial pos="-0.014085 -0.086343 -0.017864" quat="0.704744 0.699928 -0.079862 -0.084017"
           mass="0.11866" diaginertia="0.00022805 0.000205989 3.64827e-05" />
         <joint name="servo4" pos="0 0 0" axis="0 0 -1" range="-1.57 1.57" actuatorfrcrange="-5 5"
-          damping="0.1" armature="0.01" />
+          damping="0" armature="0.01" />
         <geom name="right_leg_visual" type="mesh" rgba="1 1 1 1" mesh="right_leg" contype="0"
           conaffinity="0" density="0" group="1" />
         <geom name="right_leg_collision" type="capsule"
@@ -92,7 +95,7 @@
             quat="0.747777 0.663944 0.00184553 0.00207827" mass="0.057726"
             diaginertia="0.000135864 0.000131727 9.16446e-06" />
           <joint name="servo3" pos="0 0 0" axis="0 0 -1" range="-3.14 0" actuatorfrcrange="-5 5"
-            damping="0.1" armature="0.01" />
+            damping="0" armature="0.01" />
           <geom name="right_foot_visual" type="mesh" rgba="0.79216 0.81961 0.93333 1"
             mesh="right_foot"
             contype="0" conaffinity="0" density="0" group="1" />
@@ -101,12 +104,12 @@
           <body name="right_wheel" pos="0.00077824 -0.14 -0.00275">
             <inertial pos="-0.00048154 0.00095238 0.036709" quat="0.5 0.5 -0.5 0.5" mass="0.65"
               diaginertia="0.001867974835 0.001028295386 0.001028205512" />
-            <joint name="wheel2" pos="0 0 0" axis="0 0 -1" damping="0.02" armature="0.01" />
+            <joint name="wheel2" pos="0 0 0" axis="0 0 -1" damping="0" armature="0.01" />
             <geom name="right_wheel_visual" type="mesh" rgba="0.94118 0.67451 0.11765 1"
               mesh="right_wheel"
               contype="0" conaffinity="0" density="0" group="1" />
             <geom name="right_wheel_collision" type="cylinder" pos="0.0 0.0 0.03"
-              size="0.0625 0.035"
+              size="0.0625 0.035" friction="0.8 0.005 0.0001"
               rgba="0 0.8 0.2 0.25" group="3" />
           </body>
         </body>
@@ -140,8 +143,10 @@
       forcerange="-2 2" />
     <!-- 轮毂电机：速度控制 -->
     <!-- kv 是速度环的增益。ctrlrange 代表你期望的最大角速度 (rad/s) -->
-    <velocity name="vel_wheel1" joint="wheel1" ctrllimited="true" ctrlrange="-20 20" kv="2" />
-    <velocity name="vel_wheel2" joint="wheel2" ctrllimited="true" ctrlrange="-20 20" kv="2" />
+    <velocity name="vel_wheel1" joint="wheel1" ctrllimited="true" ctrlrange="-20 20" kv="2"
+      forcerange="-2 2" />
+    <velocity name="vel_wheel2" joint="wheel2" ctrllimited="true" ctrlrange="-20 20" kv="2"
+      forcerange="-2 2" />
   </actuator>
 
 </mujoco>

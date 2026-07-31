@@ -98,7 +98,8 @@ WHEELED_LEGGED_CFG = ArticulationCfg(
         ),
         "wheel_velocity": DelayedPDActuatorCfg(
             joint_names_expr=["wheel.*"],
-            effort_limit_sim=5.0,
+            effort_limit=2.0,
+            effort_limit_sim=2.0,
             velocity_limit_sim=20.0,
             stiffness=0.0,
             damping=2.0,
@@ -535,6 +536,34 @@ class WheeledLeggedStage3EnvCfg(WheeledLeggedStage3dEnvCfg):
     """Stage 3 final alias: fixed-height static stance recovery."""
 
     pass
+
+
+@configclass
+class WheeledLeggedStage3EnvCfg_PLAY(WheeledLeggedStage3EnvCfg):
+    """Deterministic Stage 3 playback configuration for cross-simulator logging."""
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.scene.num_envs = 1
+        self.observations.policy.enable_corruption = False
+        self.events.physics_material = None
+        self.events.randomize_body_mass = None
+        self.events.randomize_base_com = None
+        # Keep the training reset path for playback initialization.  Make it
+        # deterministic so this test isolates the root-height initialization.
+        self.events.reset_base.params["pose_range"] = {"x": (0.0, 0.0), "y": (0.0, 0.0), "yaw": (0.0, 0.0)}
+        self.events.reset_base.params["velocity_range"] = {
+            "x": (0.0, 0.0),
+            "y": (0.0, 0.0),
+            "z": (0.0, 0.0),
+            "roll": (0.0, 0.0),
+            "pitch": (0.0, 0.0),
+            "yaw": (0.0, 0.0),
+        }
+        self.events.reset_robot_joints = None
+        self.events.hold_leg_joint_targets = None
+        self.events.push_robot = None
+        self.events.stance_wrench_pulse = None
 
 
 @configclass
