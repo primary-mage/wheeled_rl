@@ -54,7 +54,9 @@ class DiagnosticLogger:
         self.file.close()
 
     def set_env(self, env):
-        self.env = env
+        # gymnasium may wrap the Isaac environment in OrderEnforcing/TimeLimit.
+        # The scene and articulation data live on the unwrapped ManagerBasedRLEnv.
+        self.env = getattr(env, "unwrapped", env)
 
     def set_obs(self, obs):
         self.obs = obs
