@@ -50,6 +50,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--duration", type=float, default=60.0, help="Replay duration in seconds.")
     parser.add_argument("--headless", action="store_true", help="Run without opening the MuJoCo viewer.")
     parser.add_argument("--realtime", action="store_true", help="Throttle the simulation to wall-clock time.")
+    parser.add_argument(
+        "--time-scale",
+        type=float,
+        default=1.0,
+        help="Wall-clock playback speed when --realtime is enabled (0.25 = quarter speed).",
+    )
     parser.add_argument("--render-fps", type=float, default=60.0, help="Viewer refresh rate; independent of physics rate.")
     parser.add_argument("--torch-threads", type=int, default=1, help="CPU threads used by the small policy network.")
     parser.add_argument(
@@ -128,6 +134,8 @@ def reset(model: mujoco.MjModel, data: mujoco.MjData, joint_qpos_ids: list[int])
 def run(args: argparse.Namespace) -> None:
     if args.render_fps <= 0:
         raise ValueError("--render-fps must be positive")
+    if args.time_scale <= 0:
+        raise ValueError("--time-scale must be positive")
     if args.action_delay_steps < 0:
         raise ValueError("--action-delay-steps must be non-negative")
     torch.set_num_threads(args.torch_threads)
@@ -201,7 +209,7 @@ def run(args: argparse.Namespace) -> None:
                 viewer.sync()
                 next_render_time = data.time + 1.0 / args.render_fps
             if args.realtime:
-                deadline = wall_start + (data.time - sim_start)
+                deadline = wall_start + (data.time - sim_start) / args.time_scale
                 remaining = deadline - time.perf_counter()
                 if remaining > 0:
                     time.sleep(remaining)
