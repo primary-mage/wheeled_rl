@@ -46,7 +46,7 @@ class WheeledLeggedStage3aPPORunnerCfg(WheeledLeggedStage2PPORunnerCfg):
     def __post_init__(self):
         super().__post_init__()
         self.max_iterations = 400
-        self.experiment_name = "wheeled_legged_stage3_curriculum"
+        self.experiment_name = "wheeled_legged_stage3_stance"
 
 
 @configclass

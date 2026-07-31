@@ -314,6 +314,7 @@ class EventsCfg:
         interval_range_s=(8.0, 12.0),
         params={"velocity_range": {"x": (-0.2, 0.2), "y": (-0.1, 0.1), "yaw": (-0.2, 0.2)}},
     )
+    stance_wrench_pulse: EventTerm | None = None
 
 
 @configclass
@@ -462,63 +463,76 @@ class WheeledLeggedStage2EnvCfg(WheeledLeggedStage1EnvCfg):
 
 @configclass
 class WheeledLeggedStage3BaseEnvCfg(WheeledLeggedStage2EnvCfg):
-    """Base Stage 3 settings: enable leg control and height tracking."""
+    """Base Stage 3 settings: fixed-height static stance recovery under force pulses."""
 
     actions: LegWheelActionsCfg = LegWheelActionsCfg()
 
     def __post_init__(self):
         super().__post_init__()
         self.actions.leg_pos.scale = STAGE3_SMOOTH_LEG_ACTION_SCALE
-        self.rewards.wheel_forward_alignment_l2.weight = -8.0
+        self.commands.base_velocity.ranges.lin_vel_x = (0.0, 0.0)
+        self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)
+        self.commands.base_velocity.ranges.ang_vel_z = (0.0, 0.0)
+        self.commands.base_velocity.rel_standing_envs = 1.0
+        self.commands.base_height.ranges = (NOMINAL_HEIGHT, NOMINAL_HEIGHT)
+        self.commands.base_roll.ranges = (NOMINAL_ROLL, NOMINAL_ROLL)
+        self.rewards.track_lin_vel_xy_exp.params["std"] = 0.25
+        self.rewards.track_ang_vel_z_exp.params["std"] = 0.25
+        self.rewards.track_ang_vel_z_exp.weight = 0.75
+        self.rewards.track_height_exp.weight = 1.0
+        self.rewards.track_roll_exp.weight = 0.5
+        self.rewards.wheel_forward_alignment_l2.weight = -12.0
+        self.rewards.leg_joint_symmetry_l2.weight = -4.0
         self.rewards.lin_vel_z_l2.weight = -0.35
         self.rewards.dof_acc_l2.weight = -5.0e-7
-        self.rewards.action_rate_l2.weight = -0.05
+        self.rewards.action_rate_l2.weight = -0.075
         self.terminations.root_height.params["bounds"] = (0.12, 0.60)
-
-    def _set_height_curriculum(self, height_range: tuple[float, float], height_weight: float):
-        self.commands.base_height.ranges = height_range
-        self.rewards.track_height_exp.weight = height_weight
+        self.events.push_robot = None
+        self.events.stance_wrench_pulse = EventTerm(
+            func=mdp.StaticStanceWrenchPulse,
+            mode="interval",
+            interval_range_s=(0.02, 0.02),
+            params={
+                "asset_cfg": SceneEntityCfg("robot", body_names=["base_link"], preserve_order=True),
+                "force_range": (-6.0, 6.0),
+                "yaw_torque_range": (-0.4, 0.4),
+                "pulse_duration_s": (0.10, 0.20),
+                "wait_time_s": (4.0, 7.0),
+            },
+        )
 
 
 @configclass
 class WheeledLeggedStage3aEnvCfg(WheeledLeggedStage3BaseEnvCfg):
-    """Stage 3a: narrow height range with high height-tracking weight."""
+    """Stage 3a: alias for the fixed-height static stance task."""
 
-    def __post_init__(self):
-        super().__post_init__()
-        self._set_height_curriculum(STAGE3A_HEIGHT_COMMAND_RANGE, 1.0)
+    pass
 
 
 @configclass
 class WheeledLeggedStage3bEnvCfg(WheeledLeggedStage3BaseEnvCfg):
-    """Stage 3b: medium-narrow height range."""
+    """Stage 3b: alias for the fixed-height static stance task."""
 
-    def __post_init__(self):
-        super().__post_init__()
-        self._set_height_curriculum(STAGE3B_HEIGHT_COMMAND_RANGE, 1.0)
+    pass
 
 
 @configclass
 class WheeledLeggedStage3cEnvCfg(WheeledLeggedStage3BaseEnvCfg):
-    """Stage 3c: medium-wide height range."""
+    """Stage 3c: alias for the fixed-height static stance task."""
 
-    def __post_init__(self):
-        super().__post_init__()
-        self._set_height_curriculum(STAGE3C_HEIGHT_COMMAND_RANGE, 0.9)
+    pass
 
 
 @configclass
 class WheeledLeggedStage3dEnvCfg(WheeledLeggedStage3BaseEnvCfg):
-    """Stage 3d: full height range."""
+    """Stage 3d: alias for the fixed-height static stance task."""
 
-    def __post_init__(self):
-        super().__post_init__()
-        self._set_height_curriculum(STAGE3D_HEIGHT_COMMAND_RANGE, 0.8)
+    pass
 
 
 @configclass
 class WheeledLeggedStage3EnvCfg(WheeledLeggedStage3dEnvCfg):
-    """Stage 3 final alias: full height range."""
+    """Stage 3 final alias: fixed-height static stance recovery."""
 
     pass
 
@@ -529,9 +543,26 @@ class WheeledLeggedStage4BaseEnvCfg(WheeledLeggedStage3EnvCfg):
 
     def __post_init__(self):
         super().__post_init__()
+        self.commands.base_velocity.ranges.lin_vel_x = (-0.6, 0.6)
+        self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)
         self.commands.base_velocity.ranges.ang_vel_z = (0.0, 0.0)
+        self.commands.base_velocity.rel_standing_envs = 0.05
+        self.commands.base_height.ranges = STAGE3D_HEIGHT_COMMAND_RANGE
+        self.rewards.track_lin_vel_xy_exp.params["std"] = 0.5
+        self.rewards.track_ang_vel_z_exp.params["std"] = 0.5
         self.rewards.track_ang_vel_z_exp.weight = 0.2
+        self.rewards.track_height_exp.weight = 0.8
         self.rewards.ang_vel_xy_l2.weight = -0.03
+        self.rewards.action_rate_l2.weight = -0.05
+        self.rewards.wheel_forward_alignment_l2.weight = -8.0
+        self.rewards.leg_joint_symmetry_l2.weight = 0.0
+        self.events.stance_wrench_pulse = None
+        self.events.push_robot = EventTerm(
+            func=mdp.push_by_setting_velocity,
+            mode="interval",
+            interval_range_s=(8.0, 12.0),
+            params={"velocity_range": {"x": (-0.3, 0.3), "y": (-0.15, 0.15), "yaw": (-0.3, 0.3)}},
+        )
 
     def _set_roll_curriculum(self, roll_range: tuple[float, float], roll_weight: float):
         self.commands.base_roll.ranges = roll_range
@@ -631,6 +662,18 @@ class WheeledLeggedStage6BaseEnvCfg(WheeledLeggedStage3dEnvCfg):
 
     def __post_init__(self):
         super().__post_init__()
+        self.events.stance_wrench_pulse = None
+        self.events.push_robot = EventTerm(
+            func=mdp.push_by_setting_velocity,
+            mode="interval",
+            interval_range_s=(8.0, 12.0),
+            params={"velocity_range": {"x": (-0.3, 0.3), "y": (-0.15, 0.15), "yaw": (-0.3, 0.3)}},
+        )
+        self.rewards.track_lin_vel_xy_exp.params["std"] = 0.5
+        self.rewards.track_ang_vel_z_exp.params["std"] = 0.5
+        self.rewards.action_rate_l2.weight = -0.05
+        self.rewards.wheel_forward_alignment_l2.weight = -8.0
+        self.rewards.leg_joint_symmetry_l2.weight = 0.0
         self.commands.base_height = mdp.SmoothScalarCommandCfg(
             resampling_time_range=STAGE6_COMMAND_RESAMPLING_TIME,
             ranges=STAGE3D_HEIGHT_COMMAND_RANGE,

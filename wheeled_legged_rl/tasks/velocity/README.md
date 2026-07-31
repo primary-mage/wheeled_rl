@@ -8,11 +8,8 @@ The robot base frame follows the Isaac/ROS-style convention: `+X` forward, `+Y` 
 
 - `Isaac-WheeledLegged-Stage1-v0`: low-speed forward/backward velocity tracking, fixed height and roll.
 - `Isaac-WheeledLegged-Stage2-v0`: adds yaw-rate tracking.
-- `Isaac-WheeledLegged-Stage3a-v0`: enables leg control with narrow height targets.
-- `Isaac-WheeledLegged-Stage3b-v0`: expands height targets.
-- `Isaac-WheeledLegged-Stage3c-v0`: expands height targets further.
-- `Isaac-WheeledLegged-Stage3d-v0`: trains the full height target range.
-- `Isaac-WheeledLegged-Stage3-v0`: alias for Stage 3d.
+- `Isaac-WheeledLegged-Stage3a-v0` through `Stage3d-v0`: fixed-height static stance recovery under intermittent wrench pulses.
+- `Isaac-WheeledLegged-Stage3-v0`: alias for the static stance task.
 - `Isaac-WheeledLegged-Stage4a-v0`: adds small roll targets while holding yaw-rate targets at zero.
 - `Isaac-WheeledLegged-Stage4b-v0`: expands roll targets while holding yaw-rate targets at zero.
 - `Isaac-WheeledLegged-Stage4c-v0`: trains height-conditioned roll targets while holding yaw-rate targets at zero.
@@ -50,7 +47,7 @@ wheel_vel: wheel1, wheel2                 -> joint velocity targets
 Stage 1 and Stage 2 keep `leg_pos.scale = 0.0`, so the policy still outputs leg actions but the
 servo targets stay at the nominal pose. Stage 3 and Stage 4 use default-offset joint position
 targets with joint-limit clipping, so raw zero servo actions still map to the nominal pose while
-nonzero actions can reach the height and roll command ranges.
+nonzero actions can stabilize the body or reach the downstream height and roll command ranges.
 
 ```text
 Stage 1/2: servo actions masked by zero scale; wheel actions active
@@ -66,14 +63,16 @@ height target = 0.270 m
 roll target   = 0.0 rad
 ```
 
-Stage 3 uses a height curriculum:
+Stage 3 holds a fixed static stance:
 
 ```text
-Stage 3a: height target range = [0.24, 0.30] m, height weight = 1.0
-Stage 3b: height target range = [0.22, 0.32] m, height weight = 1.0
-Stage 3c: height target range = [0.20, 0.34] m, height weight = 0.9
-Stage 3d: height target range = [0.18, 0.36] m, height weight = 0.8
-wheel fore-aft alignment penalty = -8.0 * (left_wheel_x - right_wheel_x)^2
+height target = 0.270 m, roll target = 0.0 rad
+linear and yaw-rate targets = 0.0
+horizontal-force or yaw-torque pulse every 4-7 s
+pulse duration = 0.10-0.20 s
+force range = [-6.0, 6.0] N, yaw-torque range = [-0.4, 0.4] N m
+wheel fore-aft alignment penalty = -12.0 * (left_wheel_x - right_wheel_x)^2
+leg symmetry penalty = -4.0 * ((servo2 - servo4)^2 + (servo1 - servo3)^2)
 Stage 3/4 smooth leg action scale = {servo2: 1.60, servo1: 1.25, servo4: 1.60, servo3: 1.25}
 ```
 
