@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import csv
+import atexit
 import os
 import runpy
 import sys
@@ -123,11 +124,14 @@ class DiagnosticLogger:
         self.step_index += 1
 
 
-def main():
-    if not ISAACLAB_PLAY.exists():
-        raise FileNotFoundError(f"Isaac Lab play.py not found: {ISAACLAB_PLAY}")
-    sys.path.insert(0, str(PROJECT_ROOT))
-    sys.path.insert(0, str(ISAACLAB_PLAY.parent))
+_HOOK_CLEANUP = None
+
+
+def install_diagnostic_hook():
+    """Install the logger before Isaac Lab creates its environment."""
+    global _HOOK_CLEANUP
+    if _HOOK_CLEANUP is not None:
+        return _HOOK_CLEANUP
 
     from isaaclab.envs import ManagerBasedRLEnv
 
@@ -150,14 +154,32 @@ def main():
 
     ManagerBasedRLEnv.reset = reset
     ManagerBasedRLEnv.step = step
+
+    def cleanup():
+        global _HOOK_CLEANUP
+        ManagerBasedRLEnv.reset = original_reset
+        ManagerBasedRLEnv.step = original_step
+        logger.close()
+        _HOOK_CLEANUP = None
+
+    _HOOK_CLEANUP = cleanup
+    atexit.register(cleanup)
+    return cleanup
+
+
+def main():
+    if not ISAACLAB_PLAY.exists():
+        raise FileNotFoundError(f"Isaac Lab play.py not found: {ISAACLAB_PLAY}")
+    sys.path.insert(0, str(PROJECT_ROOT))
+    sys.path.insert(0, str(ISAACLAB_PLAY.parent))
+
+    cleanup = install_diagnostic_hook()
     try:
         import wheeled_legged_rl.tasks.velocity  # noqa: F401
 
         runpy.run_path(str(ISAACLAB_PLAY), run_name="__main__")
     finally:
-        ManagerBasedRLEnv.reset = original_reset
-        ManagerBasedRLEnv.step = original_step
-        logger.close()
+        cleanup()
         print(f"Diagnostic CSV written to: {LOG_PATH}")
 
 
