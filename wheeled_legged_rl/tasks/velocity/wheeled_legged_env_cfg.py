@@ -388,6 +388,7 @@ class TerminationsCfg:
         func=mdp.root_orientation_out_of_bounds,
         params={"roll_limit": 0.75, "pitch_limit": 0.75},
     )
+    leg_or_foot_contact: DoneTerm | None = None
     wheel_scissor: DoneTerm | None = None
 
 
@@ -488,6 +489,17 @@ class WheeledLeggedStage3BaseEnvCfg(WheeledLeggedStage2EnvCfg):
         self.rewards.dof_acc_l2.weight = -5.0e-7
         self.rewards.action_rate_l2.weight = -0.075
         self.terminations.root_height.params["bounds"] = (0.12, 0.60)
+        self.terminations.leg_or_foot_contact = DoneTerm(
+            func=mdp.leg_or_foot_contact,
+            params={
+                "force_threshold": 1.0,
+                "asset_cfg": SceneEntityCfg(
+                    "robot",
+                    body_names=["left_leg", "left_foot", "right_leg", "right_foot"],
+                    preserve_order=True,
+                ),
+            },
+        )
         self.events.push_robot = None
         self.events.stance_wrench_pulse = EventTerm(
             func=mdp.StaticStanceWrenchPulse,
@@ -572,6 +584,7 @@ class WheeledLeggedStage4BaseEnvCfg(WheeledLeggedStage3EnvCfg):
 
     def __post_init__(self):
         super().__post_init__()
+        self.terminations.leg_or_foot_contact = None
         self.commands.base_velocity.ranges.lin_vel_x = (-0.6, 0.6)
         self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)
         self.commands.base_velocity.ranges.ang_vel_z = (0.0, 0.0)
@@ -691,6 +704,7 @@ class WheeledLeggedStage6BaseEnvCfg(WheeledLeggedStage3dEnvCfg):
 
     def __post_init__(self):
         super().__post_init__()
+        self.terminations.leg_or_foot_contact = None
         self.events.stance_wrench_pulse = None
         self.events.push_robot = EventTerm(
             func=mdp.push_by_setting_velocity,

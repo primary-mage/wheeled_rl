@@ -46,3 +46,18 @@ def wheel_forward_offset_too_large(
         wheel_pos_w - asset.data.root_pos_w.torch[:, None, :],
     )
     return torch.abs(wheel_pos_b[:, 0, 0] - wheel_pos_b[:, 1, 0]) > max_offset
+
+
+def leg_or_foot_contact(
+    env,
+    force_threshold: float,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg(
+        "robot",
+        body_names=["left_leg", "left_foot", "right_leg", "right_foot"],
+        preserve_order=True,
+    ),
+) -> torch.Tensor:
+    """Terminate when a leg or foot link makes meaningful contact."""
+    asset = env.scene[asset_cfg.name]
+    contact_forces_w = asset.data.net_forces_w.torch[:, asset_cfg.body_ids, :]
+    return torch.any(torch.linalg.vector_norm(contact_forces_w, dim=-1) > force_threshold, dim=1)
