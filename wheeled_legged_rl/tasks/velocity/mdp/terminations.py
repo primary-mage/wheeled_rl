@@ -46,3 +46,14 @@ def wheel_forward_offset_too_large(
         wheel_pos_w - asset.data.root_pos_w.torch[:, None, :],
     )
     return torch.abs(wheel_pos_b[:, 0, 0] - wheel_pos_b[:, 1, 0]) > max_offset
+
+
+def leg_or_foot_contact(env, force_threshold: float, sensor_names: tuple[str, ...]) -> torch.Tensor:
+    """Terminate when any configured leg or foot contact sensor exceeds the force threshold."""
+    in_contact = []
+    for sensor_name in sensor_names:
+        contact_sensor = env.scene.sensors[sensor_name]
+        force_history = contact_sensor.data.net_forces_w_history
+        max_force = torch.linalg.vector_norm(force_history, dim=-1).amax(dim=(1, 2))
+        in_contact.append(max_force > force_threshold)
+    return torch.stack(in_contact, dim=1).any(dim=1)

@@ -129,8 +129,23 @@ class WheeledLeggedSceneCfg(InteractiveSceneCfg):
         debug_vis=False,
     )
     robot: ArticulationCfg = WHEELED_LEGGED_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
-    leg_contact = ContactSensorCfg(
-        prim_path="{ENV_REGEX_NS}/Robot/Geometry/base_link/.*",
+    left_leg_contact = ContactSensorCfg(
+        prim_path="{ENV_REGEX_NS}/Robot/Geometry/base_link/left_leg",
+        update_period=0.0,
+        history_length=1,
+    )
+    left_foot_contact = ContactSensorCfg(
+        prim_path="{ENV_REGEX_NS}/Robot/Geometry/base_link/left_leg/left_foot",
+        update_period=0.0,
+        history_length=1,
+    )
+    right_leg_contact = ContactSensorCfg(
+        prim_path="{ENV_REGEX_NS}/Robot/Geometry/base_link/right_leg",
+        update_period=0.0,
+        history_length=1,
+    )
+    right_foot_contact = ContactSensorCfg(
+        prim_path="{ENV_REGEX_NS}/Robot/Geometry/base_link/right_leg/right_foot",
         update_period=0.0,
         history_length=1,
     )
@@ -496,13 +511,14 @@ class WheeledLeggedStage3BaseEnvCfg(WheeledLeggedStage2EnvCfg):
         self.rewards.action_rate_l2.weight = -0.075
         self.terminations.root_height.params["bounds"] = (0.12, 0.60)
         self.terminations.leg_or_foot_contact = DoneTerm(
-            func=mdp.illegal_contact,
+            func=mdp.leg_or_foot_contact,
             params={
-                "threshold": 1.0,
-                "sensor_cfg": SceneEntityCfg(
-                    "leg_contact",
-                    body_names=["left_leg", "left_foot", "right_leg", "right_foot"],
-                    preserve_order=True,
+                "force_threshold": 1.0,
+                "sensor_names": (
+                    "left_leg_contact",
+                    "left_foot_contact",
+                    "right_leg_contact",
+                    "right_foot_contact",
                 ),
             },
         )
