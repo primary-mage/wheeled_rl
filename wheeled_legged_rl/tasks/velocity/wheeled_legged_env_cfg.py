@@ -17,6 +17,7 @@ from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab.scene import InteractiveSceneCfg
+from isaaclab.sensors import ContactSensorCfg
 from isaaclab.sim import SimulationCfg
 from isaaclab.terrains import TerrainImporterCfg
 from isaaclab.utils.configclass import configclass
@@ -128,6 +129,11 @@ class WheeledLeggedSceneCfg(InteractiveSceneCfg):
         debug_vis=False,
     )
     robot: ArticulationCfg = WHEELED_LEGGED_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
+    leg_contact = ContactSensorCfg(
+        prim_path="{ENV_REGEX_NS}/Robot/Geometry/base_link/.*",
+        update_period=0.0,
+        history_length=1,
+    )
     dome_light = AssetBaseCfg(
         prim_path="/World/DomeLight",
         spawn=sim_utils.DomeLightCfg(color=(0.9, 0.9, 0.9), intensity=1000.0),
@@ -490,11 +496,11 @@ class WheeledLeggedStage3BaseEnvCfg(WheeledLeggedStage2EnvCfg):
         self.rewards.action_rate_l2.weight = -0.075
         self.terminations.root_height.params["bounds"] = (0.12, 0.60)
         self.terminations.leg_or_foot_contact = DoneTerm(
-            func=mdp.leg_or_foot_contact,
+            func=mdp.illegal_contact,
             params={
-                "force_threshold": 1.0,
-                "asset_cfg": SceneEntityCfg(
-                    "robot",
+                "threshold": 1.0,
+                "sensor_cfg": SceneEntityCfg(
+                    "leg_contact",
                     body_names=["left_leg", "left_foot", "right_leg", "right_foot"],
                     preserve_order=True,
                 ),
