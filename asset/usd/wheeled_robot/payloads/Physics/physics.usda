@@ -44,7 +44,7 @@ over "wheeled_legged_robot"
             }
 
             over "left_leg" (
-                prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+                prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI", "PhysxContactReportAPI"]
             )
             {
                 point3f physics:centerOfMass = (0.014085, -0.086343, -0.017864)
@@ -65,7 +65,7 @@ over "wheeled_legged_robot"
                 }
 
                 over "left_foot" (
-                    prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+                    prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI", "PhysxContactReportAPI"]
                 )
                 {
                     point3f physics:centerOfMass = (-0.00038874, -0.06993, -0.0060741)
@@ -160,7 +160,7 @@ over "wheeled_legged_robot"
             }
 
             over "right_leg" (
-                prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+                prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI", "PhysxContactReportAPI"]
             )
             {
                 point3f physics:centerOfMass = (-0.014085, -0.086343, -0.017864)
@@ -178,7 +178,7 @@ over "wheeled_legged_robot"
                 }
 
                 over "right_foot" (
-                    prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+                    prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI", "PhysxContactReportAPI"]
                 )
                 {
                     point3f physics:centerOfMass = (0.00038874, -0.06993, -0.0060741)
@@ -286,4 +286,3 @@ over "wheeled_legged_robot"
         }
     }
 }
-
