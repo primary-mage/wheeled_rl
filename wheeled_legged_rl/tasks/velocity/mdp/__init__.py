@@ -31,7 +31,13 @@ from isaaclab.envs.mdp.rewards import (
 )
 from isaaclab.envs.mdp.terminations import time_out
 
-from .commands import HeightConditionedRollCommandCfg, SmoothScalarCommandCfg, SmoothVelocityCommandCfg, UniformScalarCommandCfg
+from .commands import (
+    AdaptiveScalarCommandCfg,
+    AdaptiveSmoothVelocityCommandCfg,
+    SmoothScalarCommandCfg,
+    SmoothVelocityCommandCfg,
+    UniformScalarCommandCfg,
+)
 from .events import StaticStanceWrenchPulse, set_joint_targets_to_default
 from .observations import base_height, base_roll, constant_command
 from .rewards import leg_joint_symmetry_l2, lateral_lin_vel_l2, pitch_l2, track_base_height_exp, track_base_roll_exp, wheel_forward_alignment_l2
@@ -39,7 +45,8 @@ from .terminations import leg_or_foot_contact, root_height_out_of_bounds, root_o
 
 __all__ = [
     "JointPositionActionCfg",
-    "HeightConditionedRollCommandCfg",
+    "AdaptiveScalarCommandCfg",
+    "AdaptiveSmoothVelocityCommandCfg",
     "SmoothScalarCommandCfg",
     "SmoothVelocityCommandCfg",
     "UniformScalarCommandCfg",

@@ -2,20 +2,21 @@
 set -euo pipefail
 
 ISAACLAB_ROOT="${ISAACLAB_ROOT:-/home/mage/IsaacLab}"
-PROJECT_ROOT="${PROJECT_ROOT:-/home/mage/projects/wheeled_legged_rl}"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="${PROJECT_ROOT:-$(cd -- "${SCRIPT_DIR}/.." && pwd)}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME:-wheeled_legged_stage1}"
 NUM_ENVS="${NUM_ENVS:-2048}"
 VIZ="${VIZ:-kit}"
-ITER_PER_STAGE="${ITER_PER_STAGE:-300}"
+ITER_PER_STAGE="${ITER_PER_STAGE:-1200}"
 
 if [[ $# -lt 2 ]]; then
   echo "Usage: $0 <load_run> <checkpoint>"
   echo
   echo "Example:"
-  echo "  $0 2026-07-30_XX-XX-XX_stable6d_stage4c_height_conditioned_from_stage4b model_3597.pt"
+  echo "  $0 2026-07-30_XX-XX-XX_adaptive_stage3_height model_3597.pt"
   echo
   echo "Optional environment variables:"
-  echo "  NUM_ENVS=2048 VIZ=kit ITER_PER_STAGE=300 EXPERIMENT_NAME=wheeled_legged_stage1"
+  echo "  NUM_ENVS=2048 VIZ=kit ITER_PER_STAGE=1200 EXPERIMENT_NAME=wheeled_legged_stage1"
   exit 1
 fi
 
@@ -85,10 +86,8 @@ train_stage() {
   echo "Next resume point: ${LOAD_RUN}/${CHECKPOINT}"
 }
 
-train_stage "Isaac-WheeledLegged-Stage5a-v0" "stable6d_stage5a_from_stage4c" "${LOAD_RUN}" "${CHECKPOINT}"
-train_stage "Isaac-WheeledLegged-Stage5b-v0" "stable6d_stage5b_from_stage5a" "${LOAD_RUN}" "${CHECKPOINT}"
-train_stage "Isaac-WheeledLegged-Stage5c-v0" "stable6d_stage5c_from_stage5b" "${LOAD_RUN}" "${CHECKPOINT}"
+train_stage "Isaac-WheeledLegged-Stage5-v0" "adaptive_stage5_yaw_from_stage3" "${LOAD_RUN}" "${CHECKPOINT}"
 
 echo
-echo "Stage5 yaw curriculum finished."
+echo "Stage5 adaptive yaw group finished."
 echo "Final checkpoint: ${LOG_ROOT}/${LOAD_RUN}/${CHECKPOINT}"

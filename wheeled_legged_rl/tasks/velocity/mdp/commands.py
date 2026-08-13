@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import MISSING
+import os
 from typing import TYPE_CHECKING
 
 import torch
@@ -58,6 +59,135 @@ class UniformScalarCommand(CommandTerm):
 
     def _resample_command(self, env_ids: Sequence[int]):
         self.scalar_command[env_ids, 0] = torch.empty(len(env_ids), device=self.device).uniform_(*self.cfg.ranges)
+
+    def _update_command(self):
+        pass
+
+
+@configclass
+class AdaptiveScalarCommandCfg(UniformScalarCommandCfg):
+    """Scalar command with per-environment promotion and demotion."""
+
+    class_type: type["AdaptiveScalarCommand"] | str = "{DIR}.commands:AdaptiveScalarCommand"
+
+    level_ranges: tuple[tuple[float, float], ...] = MISSING
+    initial_level: int = 0
+    success_threshold: float = 0.015
+    failure_threshold: float = 0.04
+    promote_after: int = 16
+    demote_after: int = 8
+    min_episode_steps: int = 25
+    state_path: str = ""
+
+
+class AdaptiveScalarCommand(UniformScalarCommand):
+    """Uniform scalar command whose range adapts independently for each environment."""
+
+    cfg: AdaptiveScalarCommandCfg
+
+    def __init__(self, cfg: AdaptiveScalarCommandCfg, env: ManagerBasedEnv):
+        super().__init__(cfg, env)
+        self.robot = env.scene["robot"]
+        self.level = torch.full(
+            (self.num_envs,), cfg.initial_level, dtype=torch.long, device=self.device
+        ).clamp(0, len(cfg.level_ranges) - 1)
+        self._success_streak = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
+        self._failure_streak = torch.zeros_like(self._success_streak)
+        self._error_sum = torch.zeros(self.num_envs, device=self.device)
+        self._step_count = torch.zeros(self.num_envs, device=self.device)
+        self.state_path = cfg.state_path or os.environ.get("WHEELED_RL_HEIGHT_CURRICULUM_STATE", "")
+        self._load_state()
+        self.metrics["level"] = self.level.float()
+        self.metrics["max_level_fraction"] = torch.zeros(self.num_envs, device=self.device)
+
+    def _load_state(self):
+        if not self.state_path or not os.path.isfile(self.state_path):
+            return
+        try:
+            state = torch.load(self.state_path, map_location=self.device)
+            levels = state.get("level", state) if isinstance(state, dict) else state
+            levels = torch.as_tensor(levels, device=self.device, dtype=torch.long).flatten()
+            if levels.numel() == self.num_envs:
+                self.level[:] = levels.clamp(0, len(self.cfg.level_ranges) - 1)
+            elif levels.numel() > 0:
+                self.level[:] = torch.round(levels.float().mean()).long().clamp(0, len(self.cfg.level_ranges) - 1)
+        except (OSError, RuntimeError, ValueError, TypeError):
+            return
+
+    def _save_state(self):
+        if not self.state_path:
+            return
+        os.makedirs(os.path.dirname(self.state_path) or ".", exist_ok=True)
+        tmp_path = f"{self.state_path}.tmp"
+        torch.save({"level": self.level.detach().cpu()}, tmp_path)
+        os.replace(tmp_path, self.state_path)
+
+    def _range_tensors(self) -> tuple[torch.Tensor, torch.Tensor]:
+        ranges = torch.as_tensor(self.cfg.level_ranges, device=self.device)
+        return ranges[:, 0], ranges[:, 1]
+
+    def _update_metrics(self):
+        self.metrics["mean"][:] = self.scalar_command[:, 0]
+        self._error_sum += torch.abs(self.scalar_command[:, 0] - self._target_for_metrics())
+        self._step_count += 1.0
+        self.metrics["level"][:] = self.level.float()
+        self.metrics["max_level_fraction"][:] = (self.level == len(self.cfg.level_ranges) - 1).float()
+
+    def _target_for_metrics(self) -> torch.Tensor:
+        return self.robot.data.root_pos_w.torch[:, 2]
+
+    def _update_levels(self, env_ids: torch.Tensor):
+        if env_ids.numel() == 0:
+            return
+        denom = self._step_count[env_ids].clamp_min(1.0)
+        mean_error = self._error_sum[env_ids] / denom
+        valid_episode = self._step_count[env_ids] > 0.0
+        enough_steps = self._step_count[env_ids] >= self.cfg.min_episode_steps
+        successes = enough_steps & (mean_error <= self.cfg.success_threshold)
+        failures = valid_episode & ((~enough_steps) | (mean_error >= self.cfg.failure_threshold))
+
+        self._success_streak[env_ids] = torch.where(
+            successes, self._success_streak[env_ids] + 1, torch.zeros_like(self._success_streak[env_ids])
+        )
+        self._failure_streak[env_ids] = torch.where(
+            failures, self._failure_streak[env_ids] + 1, torch.zeros_like(self._failure_streak[env_ids])
+        )
+
+        promote = self._success_streak[env_ids] >= self.cfg.promote_after
+        demote = self._failure_streak[env_ids] >= self.cfg.demote_after
+        current = self.level[env_ids]
+        self.level[env_ids] = torch.where(promote, current + 1, current).clamp(0, len(self.cfg.level_ranges) - 1)
+        self.level[env_ids] = torch.where(demote, self.level[env_ids] - 1, self.level[env_ids]).clamp(
+            0, len(self.cfg.level_ranges) - 1
+        )
+        changed = promote | demote
+        if torch.any(changed):
+            changed_ids = env_ids[changed]
+            self._success_streak[changed_ids] = 0
+            self._failure_streak[changed_ids] = 0
+            self._save_state()
+
+    def reset(self, env_ids: Sequence[int] | None = None) -> dict[str, float]:
+        if env_ids is None or isinstance(env_ids, slice):
+            ids = torch.arange(self.num_envs, device=self.device, dtype=torch.long)
+        else:
+            ids = torch.as_tensor(env_ids, device=self.device, dtype=torch.long)
+        self._update_levels(ids)
+        extras = super().reset(env_ids)
+        self._error_sum[ids] = 0.0
+        self._step_count[ids] = 0.0
+        self._env.extras.setdefault("log", {})["Curriculum/height_level"] = self.level.float().mean()
+        self._env.extras["log"]["Curriculum/height_max_fraction"] = (
+            (self.level == len(self.cfg.level_ranges) - 1).float().mean()
+        )
+        return extras
+
+    def _resample_command(self, env_ids: Sequence[int]):
+        ids = torch.as_tensor(env_ids, device=self.device, dtype=torch.long)
+        low, high = self._range_tensors()
+        self.scalar_command[ids, 0] = low[self.level[ids]] + torch.rand(len(ids), device=self.device) * (
+            high[self.level[ids]] - low[self.level[ids]]
+        )
 
     def _update_command(self):
         pass
@@ -199,56 +329,119 @@ class SmoothVelocityCommand(CommandTerm):
 
 
 @configclass
-class HeightConditionedRollCommandCfg(UniformScalarCommandCfg):
-    """Configuration for roll commands whose sampled range depends on the current height command."""
+class AdaptiveSmoothVelocityCommandCfg(SmoothVelocityCommandCfg):
+    """Smooth velocity command with per-environment yaw difficulty levels."""
 
-    class_type: type["HeightConditionedRollCommand"] | str = "{DIR}.commands:HeightConditionedRollCommand"
+    class_type: type["AdaptiveSmoothVelocityCommand"] | str = "{DIR}.commands:AdaptiveSmoothVelocityCommand"
 
-    height_command_name: str = "base_height"
-    """Name of the height command term that limits the reachable roll range."""
-
-    height_range: tuple[float, float] = (0.18, 0.36)
-    """Height range used to compute the roll envelope."""
-
-    center_height: float = 0.27
-    """Height where the largest roll command is allowed."""
-
-    center_roll_limit: float = MISSING
-    """Absolute roll limit at center height."""
-
-    edge_roll_limit: float = MISSING
-    """Absolute roll limit near the low/high height edges."""
+    level_ranges: tuple[tuple[float, float], ...] = MISSING
+    initial_level: int = 0
+    success_after: int = 16
+    failure_after: int = 8
+    min_episode_steps: int = 25
+    failure_xy_threshold: float = 0.30
+    failure_yaw_threshold: float = 0.60
+    state_path: str = ""
 
 
-class HeightConditionedRollCommand(UniformScalarCommand):
-    """Sample roll targets inside a triangular height-dependent reachable envelope."""
+class AdaptiveSmoothVelocityCommand(SmoothVelocityCommand):
+    """Smooth velocity command whose yaw range adapts independently per environment."""
 
-    cfg: HeightConditionedRollCommandCfg
+    cfg: AdaptiveSmoothVelocityCommandCfg
 
-    def __str__(self) -> str:
-        msg = "HeightConditionedRollCommand:\n"
-        msg += f"\tCommand dimension: {tuple(self.command.shape[1:])}\n"
-        msg += f"\tResampling time range: {self.cfg.resampling_time_range}\n"
-        msg += f"\tHeight range: {self.cfg.height_range}\n"
-        msg += f"\tCenter height: {self.cfg.center_height}\n"
-        msg += f"\tRoll limits: edge={self.cfg.edge_roll_limit}, center={self.cfg.center_roll_limit}"
-        return msg
+    def __init__(self, cfg: AdaptiveSmoothVelocityCommandCfg, env: ManagerBasedEnv):
+        super().__init__(cfg, env)
+        self.level = torch.full(
+            (self.num_envs,), cfg.initial_level, dtype=torch.long, device=self.device
+        ).clamp(0, len(cfg.level_ranges) - 1)
+        self._success_streak = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
+        self._failure_streak = torch.zeros_like(self._success_streak)
+        self.state_path = cfg.state_path or os.environ.get("WHEELED_RL_YAW_CURRICULUM_STATE", "")
+        self._load_state()
+        self.metrics["level"] = self.level.float()
+        self.metrics["max_level_fraction"] = torch.zeros(self.num_envs, device=self.device)
 
-    def _roll_limit(self, env_ids: Sequence[int] | None = None) -> torch.Tensor:
-        height = self._env.command_manager.get_command(self.cfg.height_command_name)[:, 0]
-        if env_ids is not None:
-            height = height[env_ids]
+    def _load_state(self):
+        if not self.state_path or not os.path.isfile(self.state_path):
+            return
+        try:
+            state = torch.load(self.state_path, map_location=self.device)
+            levels = state.get("level", state) if isinstance(state, dict) else state
+            levels = torch.as_tensor(levels, device=self.device, dtype=torch.long).flatten()
+            if levels.numel() == self.num_envs:
+                self.level[:] = levels.clamp(0, len(self.cfg.level_ranges) - 1)
+            elif levels.numel() > 0:
+                self.level[:] = torch.round(levels.float().mean()).long().clamp(0, len(self.cfg.level_ranges) - 1)
+        except (OSError, RuntimeError, ValueError, TypeError):
+            return
 
-        low, high = self.cfg.height_range
-        half_range = max(self.cfg.center_height - low, high - self.cfg.center_height)
-        center_ratio = 1.0 - torch.abs(height - self.cfg.center_height) / half_range
-        center_ratio = torch.clamp(center_ratio, 0.0, 1.0)
-        return self.cfg.edge_roll_limit + (self.cfg.center_roll_limit - self.cfg.edge_roll_limit) * center_ratio
+    def _save_state(self):
+        if not self.state_path:
+            return
+        os.makedirs(os.path.dirname(self.state_path) or ".", exist_ok=True)
+        tmp_path = f"{self.state_path}.tmp"
+        torch.save({"level": self.level.detach().cpu()}, tmp_path)
+        os.replace(tmp_path, self.state_path)
+
+    def _update_levels(self, env_ids: torch.Tensor):
+        if env_ids.numel() == 0:
+            return
+        denom = self._step_count[env_ids].clamp_min(1.0)
+        mean_xy = self._error_xy_sum[env_ids] / denom
+        mean_yaw = self._error_yaw_sum[env_ids] / denom
+        valid_episode = self._step_count[env_ids] > 0.0
+        enough_steps = self._step_count[env_ids] >= self.cfg.min_episode_steps
+        successes = enough_steps & (mean_xy < self.cfg.vel_xy_success_threshold) & (
+            mean_yaw < self.cfg.vel_yaw_success_threshold
+        )
+        failures = valid_episode & ((~enough_steps) | (mean_xy > self.cfg.failure_xy_threshold) | (
+            mean_yaw > self.cfg.failure_yaw_threshold
+        ))
+        self._success_streak[env_ids] = torch.where(
+            successes, self._success_streak[env_ids] + 1, torch.zeros_like(self._success_streak[env_ids])
+        )
+        self._failure_streak[env_ids] = torch.where(
+            failures, self._failure_streak[env_ids] + 1, torch.zeros_like(self._failure_streak[env_ids])
+        )
+        promote = self._success_streak[env_ids] >= self.cfg.success_after
+        demote = self._failure_streak[env_ids] >= self.cfg.failure_after
+        current = self.level[env_ids]
+        self.level[env_ids] = torch.where(promote, current + 1, current).clamp(0, len(self.cfg.level_ranges) - 1)
+        self.level[env_ids] = torch.where(demote, self.level[env_ids] - 1, self.level[env_ids]).clamp(
+            0, len(self.cfg.level_ranges) - 1
+        )
+        changed = promote | demote
+        if torch.any(changed):
+            changed_ids = env_ids[changed]
+            self._success_streak[changed_ids] = 0
+            self._failure_streak[changed_ids] = 0
+            self._save_state()
+
+    def reset(self, env_ids: Sequence[int] | None = None) -> dict[str, float]:
+        if env_ids is None or isinstance(env_ids, slice):
+            ids = torch.arange(self.num_envs, device=self.device, dtype=torch.long)
+        else:
+            ids = torch.as_tensor(env_ids, device=self.device, dtype=torch.long)
+        self._update_levels(ids)
+        extras = super().reset(env_ids)
+        self._env.extras.setdefault("log", {})["Curriculum/yaw_level"] = self.level.float().mean()
+        self._env.extras["log"]["Curriculum/yaw_max_fraction"] = (
+            (self.level == len(self.cfg.level_ranges) - 1).float().mean()
+        )
+        return extras
 
     def _resample_command(self, env_ids: Sequence[int]):
-        roll_limit = self._roll_limit(env_ids)
-        self.scalar_command[env_ids, 0] = (2.0 * torch.rand(len(env_ids), device=self.device) - 1.0) * roll_limit
-
-    def _update_command(self):
-        roll_limit = self._roll_limit()
-        self.scalar_command[:, 0] = torch.clamp(self.scalar_command[:, 0], -roll_limit, roll_limit)
+        ids = torch.as_tensor(env_ids, device=self.device, dtype=torch.long)
+        r = torch.empty(len(ids), device=self.device)
+        self.target_vel_command_b[ids, 0] = r.uniform_(*self.cfg.ranges.lin_vel_x)
+        self.target_vel_command_b[ids, 1] = r.uniform_(*self.cfg.ranges.lin_vel_y)
+        yaw_ranges = torch.as_tensor(self.cfg.level_ranges, device=self.device)
+        yaw_low = yaw_ranges[self.level[ids], 0]
+        yaw_high = yaw_ranges[self.level[ids], 1]
+        self.target_vel_command_b[ids, 2] = yaw_low + torch.rand(len(ids), device=self.device) * (yaw_high - yaw_low)
+        self.is_standing_env[ids] = r.uniform_(0.0, 1.0) <= self.cfg.rel_standing_envs
+        self.target_vel_command_b[ids, :] *= (~self.is_standing_env[ids]).unsqueeze(1)
+        first_resample = self.command_counter[ids] == 0
+        if torch.any(first_resample):
+            first_ids = ids[first_resample]
+            self.vel_command_b[first_ids, :] = self.target_vel_command_b[first_ids, :]

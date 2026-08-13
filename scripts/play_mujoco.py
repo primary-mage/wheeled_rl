@@ -4,7 +4,13 @@
 from __future__ import annotations
 
 import argparse
+import csv
+import os
+import select
+import sys
+import termios
 import time
+import tty
 from pathlib import Path
 
 import mujoco
@@ -15,7 +21,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MODEL = PROJECT_ROOT / "asset" / "wheeled_robot.xml"
 DEFAULT_CHECKPOINT = PROJECT_ROOT / "logs" / "stage3_stance" / "model_1998.pt"
 JOINT_NAMES = ("servo2", "servo1", "servo4", "servo3", "wheel1", "wheel2")
+OBS_JOINT_NAMES = ("servo2", "servo4", "servo1", "servo3", "wheel1", "wheel2")
 DEFAULT_JOINT_POS = torch.tensor((0.9, -1.9, 0.9, -1.9, 0.0, 0.0), dtype=torch.float32)
+OBS_DEFAULT_JOINT_POS = torch.tensor((0.9, 0.9, -1.9, -1.9, 0.0, 0.0), dtype=torch.float32)
 LEG_ACTION_SCALE = torch.tensor((1.6, 1.25, 1.6, 1.25), dtype=torch.float32)
 LEG_LIMITS = torch.tensor(((-1.57, 1.57), (-3.14, 0.0), (-1.57, 1.57), (-3.14, 0.0)))
 POLICY_DT = 0.02  # Isaac Lab: dt=0.005, decimation=4.
@@ -59,6 +67,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--render-fps", type=float, default=60.0, help="Viewer refresh rate; independent of physics rate.")
     parser.add_argument("--torch-threads", type=int, default=1, help="CPU threads used by the small policy network.")
     parser.add_argument(
+        "--log-csv",
+        type=Path,
+        default=None,
+        help="Optional 50 Hz policy-step CSV log path.",
+    )
+    parser.add_argument(
         "--action-delay-steps",
         type=int,
         default=4,
@@ -93,15 +107,15 @@ def projected_gravity(data: mujoco.MjData) -> torch.Tensor:
 def build_observation(
     model: mujoco.MjModel,
     data: mujoco.MjData,
-    joint_qpos_ids: list[int],
-    joint_dof_ids: list[int],
+    obs_joint_qpos_ids: list[int],
+    obs_joint_dof_ids: list[int],
     command: torch.Tensor,
     last_action: torch.Tensor,
 ) -> torch.Tensor:
     base_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "base_link")
     base_lin_vel, base_ang_vel = body_velocity(model, data, base_id)
-    joint_pos = torch.tensor(data.qpos[joint_qpos_ids], dtype=torch.float32) - DEFAULT_JOINT_POS
-    joint_vel = torch.tensor(data.qvel[joint_dof_ids], dtype=torch.float32)
+    joint_pos = torch.tensor(data.qpos[obs_joint_qpos_ids], dtype=torch.float32) - OBS_DEFAULT_JOINT_POS
+    joint_vel = torch.tensor(data.qvel[obs_joint_dof_ids], dtype=torch.float32)
     root_z = torch.tensor((data.xpos[base_id, 2],), dtype=torch.float32)
     root_rotation = torch.tensor(data.xmat[base_id], dtype=torch.float32).reshape(3, 3)
     roll = torch.atan2(root_rotation[2, 1], root_rotation[2, 2]).reshape(1)
@@ -131,6 +145,104 @@ def reset(model: mujoco.MjModel, data: mujoco.MjData, joint_qpos_ids: list[int])
     mujoco.mj_forward(data.model, data)
 
 
+class PolicyLogger:
+    """Write one row per policy inference, rather than per physics step."""
+
+    def __init__(self, path: Path | None) -> None:
+        self._file = None
+        self._writer = None
+        self._step = 0
+        if path is not None:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            self._file = path.open("w", newline="")
+            self._writer = csv.writer(self._file)
+            self._writer.writerow(
+                [
+                    "policy_step",
+                    "sim_time",
+                    *(f"obs_{index}" for index in range(34)),
+                    *(f"raw_action_{index}" for index in range(6)),
+                    *(f"leg_target_{name}" for name in JOINT_NAMES[:4]),
+                    *(f"wheel_velocity_target_{name}" for name in JOINT_NAMES[4:]),
+                    *(f"applied_ctrl_{name}" for name in JOINT_NAMES),
+                    *(f"actuator_force_{name}" for name in JOINT_NAMES),
+                ]
+            )
+
+    def write(
+        self,
+        sim_time: float,
+        observation: torch.Tensor,
+        action: torch.Tensor,
+        leg_target: torch.Tensor,
+        wheel_velocity_target: torch.Tensor,
+        applied_ctrl,
+        actuator_force,
+    ) -> None:
+        if self._writer is None:
+            return
+        self._writer.writerow(
+            [
+                self._step,
+                sim_time,
+                *observation.tolist(),
+                *action.tolist(),
+                *leg_target.tolist(),
+                *wheel_velocity_target.tolist(),
+                *applied_ctrl.tolist(),
+                *actuator_force.tolist(),
+            ]
+        )
+        self._step += 1
+
+    def close(self) -> None:
+        if self._file is not None:
+            self._file.close()
+
+
+class TerminalCommand:
+    """Accumulate teleoperation commands from a non-blocking terminal."""
+
+    def __init__(self, initial_command: torch.Tensor) -> None:
+        self._command = initial_command.clone()
+        self._fd = sys.stdin.fileno()
+        self._old_terminal = None
+        if sys.stdin.isatty():
+            self._old_terminal = termios.tcgetattr(self._fd)
+            tty.setcbreak(self._fd)
+
+    def poll(self) -> None:
+        if self._old_terminal is None:
+            return
+        while select.select([self._fd], [], [], 0.0)[0]:
+            key = os.read(self._fd, 1).decode("utf-8", errors="ignore").lower()
+            if key == "w":
+                self._command[0] = min(0.6, self._command[0] + 0.1)
+            elif key == "s":
+                self._command[0] = max(-0.6, self._command[0] - 0.1)
+            elif key == "a":
+                self._command[2] = min(1.2, self._command[2] + 0.1)
+            elif key == "d":
+                self._command[2] = max(-1.2, self._command[2] - 0.1)
+            elif key == " ":
+                self._command[:3] = 0.0
+            else:
+                continue
+            print(
+                f"Terminal command: vx={self._command[0].item():+.2f} m/s, "
+                f"yaw_rate={self._command[2].item():+.2f} rad/s",
+                flush=True,
+            )
+
+    def snapshot(self) -> torch.Tensor:
+        return self._command.clone()
+
+    def close(self) -> None:
+        if self._old_terminal is not None:
+            termios.tcsetattr(self._fd, termios.TCSADRAIN, self._old_terminal)
+            self._old_terminal = None
+
+
 def run(args: argparse.Namespace) -> None:
     if args.render_fps <= 0:
         raise ValueError("--render-fps must be positive")
@@ -142,7 +254,14 @@ def run(args: argparse.Namespace) -> None:
     model = mujoco.MjModel.from_xml_path(str(args.model))
     data = mujoco.MjData(model)
     joint_qpos_ids = [model.jnt_qposadr[mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, name)] for name in JOINT_NAMES]
-    joint_dof_ids = [model.jnt_dofadr[mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, name)] for name in JOINT_NAMES]
+    obs_joint_qpos_ids = [
+        model.jnt_qposadr[mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, name)]
+        for name in OBS_JOINT_NAMES
+    ]
+    obs_joint_dof_ids = [
+        model.jnt_dofadr[mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, name)]
+        for name in OBS_JOINT_NAMES
+    ]
     actuator_ids = [mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, name) for name in (
         "pos_servo2", "pos_servo1", "pos_servo4", "pos_servo3", "vel_wheel1", "vel_wheel2"
     )]
@@ -150,7 +269,9 @@ def run(args: argparse.Namespace) -> None:
         raise RuntimeError("MuJoCo model is missing one or more policy actuators")
 
     actor = load_actor(args.checkpoint)
-    command = torch.tensor((args.vx, args.vy, args.yaw_rate, args.height, args.roll), dtype=torch.float32)
+    command = TerminalCommand(
+        torch.tensor((args.vx, args.vy, args.yaw_rate, args.height, args.roll), dtype=torch.float32)
+    )
     last_action = torch.zeros(6, dtype=torch.float32)
     reset(model, data, joint_qpos_ids)
     print(
@@ -163,18 +284,38 @@ def run(args: argparse.Namespace) -> None:
     desired_ctrl[actuator_ids[:4]] = DEFAULT_JOINT_POS[:4].numpy()
     desired_ctrl[actuator_ids[4:]] = 0.0
     delayed_ctrl = [desired_ctrl.copy() for _ in range(args.action_delay_steps)]
+    logger = PolicyLogger(args.log_csv)
 
     def step_policy() -> None:
         nonlocal last_action
-        observation = build_observation(model, data, joint_qpos_ids, joint_dof_ids, command, last_action)
+        observation = build_observation(
+            model,
+            data,
+            obs_joint_qpos_ids,
+            obs_joint_dof_ids,
+            command.snapshot(),
+            last_action,
+        )
         inference_start = time.perf_counter()
         with torch.inference_mode():
             action = actor(observation).clamp(-10.0, 10.0)
         inference_times.append(time.perf_counter() - inference_start)
         leg_target = DEFAULT_JOINT_POS[:4] + action[:4] * LEG_ACTION_SCALE
         leg_target = torch.maximum(torch.minimum(leg_target, LEG_LIMITS[:, 1]), LEG_LIMITS[:, 0])
+        wheel_velocity_target = action[4:] * 8.0
+        # These values describe the command and force active at observation time.
+        # They can lag the new output because actuation is explicitly delayed.
+        logger.write(
+            data.time,
+            observation,
+            action,
+            leg_target,
+            wheel_velocity_target,
+            data.ctrl[actuator_ids].copy(),
+            data.actuator_force[actuator_ids].copy(),
+        )
         desired_ctrl[actuator_ids[:4]] = leg_target.numpy()
-        desired_ctrl[actuator_ids[4:]] = (action[4:] * 8.0).numpy()
+        desired_ctrl[actuator_ids[4:]] = wheel_velocity_target.numpy()
         last_action = action
 
     physics_steps_per_policy = round(POLICY_DT / model.opt.timestep)
@@ -189,11 +330,13 @@ def run(args: argparse.Namespace) -> None:
         from mujoco import viewer as mujoco_viewer
 
         viewer = mujoco_viewer.launch_passive(model, data)
+    print("Terminal command: W/S +/-0.1 m/s, A/D +/-0.1 rad/s per key, Space=stop.")
     sim_start = data.time
     wall_start = time.perf_counter()
     next_render_time = data.time
     try:
         for physics_step in range(total_steps):
+            command.poll()
             if physics_step % physics_steps_per_policy == 0:
                 step_policy()
             delayed_ctrl.append(desired_ctrl.copy())
@@ -218,6 +361,8 @@ def run(args: argparse.Namespace) -> None:
     finally:
         if viewer is not None:
             viewer.close()
+        logger.close()
+        command.close()
     wall_elapsed = time.perf_counter() - wall_start
     print(
         f"Completed {args.duration:.1f}s; base height range: "
