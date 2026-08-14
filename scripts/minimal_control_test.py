@@ -1,11 +1,13 @@
 """Minimal Isaac Lab control test for the wheeled-legged robot USD."""
 
 import argparse
+from pathlib import Path
 
 from isaaclab.app import AppLauncher
 
 
-DEFAULT_USD = "/home/mage/projects/wheeled_legged_rl/asset/usd/wheeled_robot/wheeled_robot.usda"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_USD = str(PROJECT_ROOT / "asset" / "usd" / "wheeled_robot" / "wheeled_robot.usda")
 NOMINAL_HEIGHT = 0.270
 NOMINAL_JOINT_POS = {
     "servo2": 0.9,
@@ -18,8 +20,8 @@ NOMINAL_JOINT_POS = {
 
 parser = argparse.ArgumentParser(description="Minimal control test for wheeled_robot.usda.")
 parser.add_argument("--usd_path", default=DEFAULT_USD, help="Path to the converted robot USD/USDA.")
-parser.add_argument("--wheel_speed", type=float, default=3.0, help="Wheel velocity target in rad/s.")
-parser.add_argument("--leg_amp", type=float, default=0.25, help="Leg position oscillation amplitude in rad.")
+parser.add_argument("--wheel_speed", type=float, default=0.0, help="Wheel velocity target in rad/s.")
+parser.add_argument("--leg_amp", type=float, default=0.0, help="Leg position oscillation amplitude in rad.")
 parser.add_argument("--num_envs", type=int, default=1, help="Number of environments to spawn.")
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
@@ -63,14 +65,14 @@ ROBOT_CFG = ArticulationCfg(
     actuators={
         "leg_position": ImplicitActuatorCfg(
             joint_names_expr=["servo.*"],
-            effort_limit_sim=5.0,
+            effort_limit_sim=2.0,
             velocity_limit_sim=10.0,
             stiffness=10.0,
             damping=2.0,
         ),
         "wheel_velocity": ImplicitActuatorCfg(
             joint_names_expr=["wheel.*"],
-            effort_limit_sim=5.0,
+            effort_limit_sim=2.0,
             velocity_limit_sim=20.0,
             stiffness=0.0,
             damping=2.0,

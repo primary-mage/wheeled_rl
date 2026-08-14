@@ -32,23 +32,25 @@ from isaaclab.envs.mdp.rewards import (
 from isaaclab.envs.mdp.terminations import time_out
 
 from .commands import (
-    AdaptiveScalarCommandCfg,
-    AdaptiveSmoothVelocityCommandCfg,
-    SmoothScalarCommandCfg,
-    SmoothVelocityCommandCfg,
+    ManeuverVelocityCommandCfg,
     UniformScalarCommandCfg,
 )
-from .events import StaticStanceWrenchPulse, set_joint_targets_to_default
+from .events import set_joint_targets_to_default
 from .observations import base_height, base_roll, constant_command
-from .rewards import leg_joint_symmetry_l2, lateral_lin_vel_l2, pitch_l2, track_base_height_exp, track_base_roll_exp, wheel_forward_alignment_l2
+from .rewards import (
+    leg_joint_symmetry_l2,
+    lateral_lin_vel_l2,
+    pitch_l2,
+    track_base_height_exp,
+    track_base_roll_exp,
+    wheel_forward_alignment_l2,
+    wheel_velocity_when_stationary_l2,
+)
 from .terminations import leg_or_foot_contact, root_height_out_of_bounds, root_orientation_out_of_bounds, wheel_forward_offset_too_large
 
 __all__ = [
     "JointPositionActionCfg",
-    "AdaptiveScalarCommandCfg",
-    "AdaptiveSmoothVelocityCommandCfg",
-    "SmoothScalarCommandCfg",
-    "SmoothVelocityCommandCfg",
+    "ManeuverVelocityCommandCfg",
     "UniformScalarCommandCfg",
     "JointVelocityActionCfg",
     "UniformVelocityCommandCfg",
@@ -82,11 +84,11 @@ __all__ = [
     "root_orientation_out_of_bounds",
     "wheel_forward_offset_too_large",
     "set_joint_targets_to_default",
-    "StaticStanceWrenchPulse",
     "time_out",
     "track_ang_vel_z_exp",
     "track_base_height_exp",
     "track_base_roll_exp",
     "track_lin_vel_xy_exp",
     "wheel_forward_alignment_l2",
+    "wheel_velocity_when_stationary_l2",
 ]

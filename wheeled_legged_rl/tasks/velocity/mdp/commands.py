@@ -329,6 +329,114 @@ class SmoothVelocityCommand(CommandTerm):
 
 
 @configclass
+class ManeuverVelocityCommandCfg(SmoothVelocityCommandCfg):
+    """Rate-limited velocity profiles matched to the deployment command shaper.
+
+    Unlike a uniformly resampled command, this generator deliberately mixes
+    stationary holds, cruises, braking segments, and reversals.  A reversal is
+    still rate-limited, so its commanded velocity always passes through zero.
+    """
+
+    class_type: type["ManeuverVelocityCommand"] | str = "{DIR}.commands:ManeuverVelocityCommand"
+
+    # (stationary, cruise, brake-to-zero, reverse-through-zero)
+    mode_weights: tuple[float, float, float, float] = (0.25, 0.35, 0.25, 0.15)
+    # Each bin is (weight, min_abs_vx, max_abs_vx).  A sign is sampled evenly.
+    speed_bins: tuple[tuple[float, float, float], ...] = ((1.0, 0.05, 0.25),)
+    max_lateral_accel: float = 0.35
+    """Clamp yaw by ``abs(vx * yaw_rate)`` to avoid infeasible high-speed turns."""
+
+
+class ManeuverVelocityCommand(SmoothVelocityCommand):
+    """Generate stratified, rate-limited stationary and longitudinal maneuvers."""
+
+    cfg: ManeuverVelocityCommandCfg
+
+    STATIONARY = 0
+    CRUISE = 1
+    BRAKE = 2
+    REVERSE = 3
+
+    def __init__(self, cfg: ManeuverVelocityCommandCfg, env: ManagerBasedEnv):
+        super().__init__(cfg, env)
+        if len(cfg.mode_weights) != 4 or any(weight < 0.0 for weight in cfg.mode_weights):
+            raise ValueError("mode_weights must contain four non-negative values")
+        if sum(cfg.mode_weights) <= 0.0:
+            raise ValueError("mode_weights must contain at least one positive value")
+        if not cfg.speed_bins or any(weight < 0.0 or low < 0.0 or high < low for weight, low, high in cfg.speed_bins):
+            raise ValueError("speed_bins must contain (non-negative weight, low, high) tuples")
+        if sum(weight for weight, _, _ in cfg.speed_bins) <= 0.0:
+            raise ValueError("speed_bins must contain at least one positive weight")
+        if cfg.max_lateral_accel <= 0.0:
+            raise ValueError("max_lateral_accel must be positive")
+        self._mode = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
+        self.metrics["stationary_fraction"] = torch.zeros(self.num_envs, device=self.device)
+        self.metrics["braking_fraction"] = torch.zeros(self.num_envs, device=self.device)
+
+    def _sample_speed(self, count: int) -> torch.Tensor:
+        bins = torch.as_tensor(self.cfg.speed_bins, device=self.device, dtype=torch.float32)
+        bin_ids = torch.multinomial(bins[:, 0], count, replacement=True)
+        magnitudes = bins[bin_ids, 1] + torch.rand(count, device=self.device) * (bins[bin_ids, 2] - bins[bin_ids, 1])
+        signs = torch.where(torch.rand(count, device=self.device) < 0.5, -1.0, 1.0)
+        return magnitudes * signs
+
+    def _sample_yaw(self, vx: torch.Tensor) -> torch.Tensor:
+        yaw = torch.empty(len(vx), device=self.device).uniform_(*self.cfg.ranges.ang_vel_z)
+        yaw_limit = self.cfg.max_lateral_accel / vx.abs().clamp_min(0.05)
+        return torch.clamp(yaw, -yaw_limit, yaw_limit)
+
+    def _resample_command(self, env_ids: Sequence[int]):
+        ids = torch.as_tensor(env_ids, device=self.device, dtype=torch.long)
+        if len(ids) == 0:
+            return
+        weights = torch.as_tensor(self.cfg.mode_weights, device=self.device, dtype=torch.float32)
+        modes = torch.multinomial(weights, len(ids), replacement=True)
+        target = torch.zeros((len(ids), 3), device=self.device)
+        moving = modes == self.CRUISE
+        reversing = modes == self.REVERSE
+
+        if torch.any(moving):
+            moving_ids = torch.nonzero(moving, as_tuple=False).squeeze(-1)
+            target[moving_ids, 0] = self._sample_speed(len(moving_ids))
+            target[moving_ids, 2] = self._sample_yaw(target[moving_ids, 0])
+        if torch.any(reversing):
+            reversing_ids = torch.nonzero(reversing, as_tuple=False).squeeze(-1)
+            speed = self._sample_speed(len(reversing_ids))
+            previous_sign = torch.sign(self.target_vel_command_b[ids[reversing_ids], 0])
+            has_direction = previous_sign != 0.0
+            speed[has_direction] = -previous_sign[has_direction] * speed[has_direction].abs()
+            target[reversing_ids, 0] = speed
+            target[reversing_ids, 2] = self._sample_yaw(speed)
+
+        # STATIONARY and BRAKE both target zero.  Their separate labels make
+        # the mixture observable in logs and prevent stationary behavior from
+        # becoming an accidental low-probability outcome.
+        self._mode[ids] = modes
+        self.is_standing_env[ids] = (modes == self.STATIONARY) | (modes == self.BRAKE)
+        self.target_vel_command_b[ids] = target
+
+    def _update_metrics(self):
+        super()._update_metrics()
+        self.metrics["stationary_fraction"][:] = self.is_standing_env.float()
+        self.metrics["braking_fraction"][:] = (self._mode == self.BRAKE).float()
+
+    def reset(self, env_ids: Sequence[int] | None = None) -> dict[str, float]:
+        if env_ids is None or isinstance(env_ids, slice):
+            ids = torch.arange(self.num_envs, device=self.device, dtype=torch.long)
+        else:
+            ids = torch.as_tensor(env_ids, device=self.device, dtype=torch.long)
+        extras = super().reset(env_ids)
+        # Each episode begins with a real zero-speed hold.  The following
+        # profile therefore trains takeoff from rest instead of teleporting the
+        # command to a cruise target on the reset frame.
+        self.vel_command_b[ids] = 0.0
+        self.target_vel_command_b[ids] = 0.0
+        self._mode[ids] = self.STATIONARY
+        self.is_standing_env[ids] = True
+        return extras
+
+
+@configclass
 class AdaptiveSmoothVelocityCommandCfg(SmoothVelocityCommandCfg):
     """Smooth velocity command with per-environment yaw difficulty levels."""
 

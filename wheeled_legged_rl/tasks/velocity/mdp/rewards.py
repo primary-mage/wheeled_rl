@@ -6,6 +6,11 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils.math import euler_xyz_from_quat, quat_apply_inverse
 
 
+def _as_torch(value):
+    """Support Isaac Lab tensor wrappers and plain torch tensors."""
+    return getattr(value, "torch", value)
+
+
 def track_base_height_exp(
     env,
     std: float,
@@ -89,3 +94,24 @@ def leg_joint_symmetry_l2(
     asset = env.scene[asset_cfg.name]
     joint_pos = asset.data.joint_pos[:, asset_cfg.joint_ids]
     return torch.square(joint_pos[:, 0] - joint_pos[:, 2]) + torch.square(joint_pos[:, 1] - joint_pos[:, 3])
+
+
+def wheel_velocity_when_stationary_l2(
+    env,
+    command_name: str,
+    stationary_threshold: float,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg(
+        "robot", joint_names=["wheel1", "wheel2"], preserve_order=True
+    ),
+) -> torch.Tensor:
+    """Penalize wheel spin only while the commanded body velocity is zero.
+
+    This is intentionally conditional.  A global wheel-velocity penalty would
+    teach the policy to avoid moving, whereas the P1/P2 zero-speed mixture must
+    explicitly learn a quiet, non-creeping hold.
+    """
+    asset = env.scene[asset_cfg.name]
+    command = _as_torch(env.command_manager.get_command(command_name))[:, :3]
+    wheel_vel = _as_torch(asset.data.joint_vel)[:, asset_cfg.joint_ids]
+    stationary = torch.linalg.vector_norm(command, dim=1) <= stationary_threshold
+    return torch.sum(torch.square(wheel_vel), dim=1) * stationary.float()

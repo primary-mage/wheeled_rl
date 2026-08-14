@@ -19,7 +19,6 @@ import torch
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MODEL = PROJECT_ROOT / "asset" / "wheeled_robot.xml"
-DEFAULT_CHECKPOINT = PROJECT_ROOT / "logs" / "stage3_stance" / "model_1998.pt"
 JOINT_NAMES = ("servo2", "servo1", "servo4", "servo3", "wheel1", "wheel2")
 OBS_JOINT_NAMES = ("servo2", "servo4", "servo1", "servo3", "wheel1", "wheel2")
 DEFAULT_JOINT_POS = torch.tensor((0.9, -1.9, 0.9, -1.9, 0.0, 0.0), dtype=torch.float32)
@@ -27,6 +26,10 @@ OBS_DEFAULT_JOINT_POS = torch.tensor((0.9, 0.9, -1.9, -1.9, 0.0, 0.0), dtype=tor
 LEG_ACTION_SCALE = torch.tensor((1.6, 1.25, 1.6, 1.25), dtype=torch.float32)
 LEG_LIMITS = torch.tensor(((-1.57, 1.57), (-3.14, 0.0), (-1.57, 1.57), (-3.14, 0.0)))
 POLICY_DT = 0.02  # Isaac Lab: dt=0.005, decimation=4.
+NOMINAL_HEIGHT = 0.270
+NOMINAL_ROLL = 0.0
+MAX_DEPLOY_VX = 1.0
+MAX_DEPLOY_YAW_RATE = 0.5
 
 
 class Actor(torch.nn.Module):
@@ -49,12 +52,9 @@ class Actor(torch.nn.Module):
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", type=Path, default=DEFAULT_MODEL)
-    parser.add_argument("--checkpoint", type=Path, default=DEFAULT_CHECKPOINT)
+    parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--vx", type=float, default=0.0, help="Forward command in m/s.")
-    parser.add_argument("--vy", type=float, default=0.0, help="Lateral command in m/s.")
     parser.add_argument("--yaw-rate", type=float, default=0.0, help="Yaw-rate command in rad/s.")
-    parser.add_argument("--height", type=float, default=0.27, help="Base-height command in m.")
-    parser.add_argument("--roll", type=float, default=0.0, help="Roll command in rad.")
     parser.add_argument("--duration", type=float, default=60.0, help="Replay duration in seconds.")
     parser.add_argument("--headless", action="store_true", help="Run without opening the MuJoCo viewer.")
     parser.add_argument("--realtime", action="store_true", help="Throttle the simulation to wall-clock time.")
@@ -217,13 +217,13 @@ class TerminalCommand:
         while select.select([self._fd], [], [], 0.0)[0]:
             key = os.read(self._fd, 1).decode("utf-8", errors="ignore").lower()
             if key == "w":
-                self._command[0] = min(0.6, self._command[0] + 0.1)
+                self._command[0] = min(MAX_DEPLOY_VX, self._command[0] + 0.1)
             elif key == "s":
-                self._command[0] = max(-0.6, self._command[0] - 0.1)
+                self._command[0] = max(-MAX_DEPLOY_VX, self._command[0] - 0.1)
             elif key == "a":
-                self._command[2] = min(1.2, self._command[2] + 0.1)
+                self._command[2] = min(MAX_DEPLOY_YAW_RATE, self._command[2] + 0.1)
             elif key == "d":
-                self._command[2] = max(-1.2, self._command[2] - 0.1)
+                self._command[2] = max(-MAX_DEPLOY_YAW_RATE, self._command[2] - 0.1)
             elif key == " ":
                 self._command[:3] = 0.0
             else:
@@ -250,6 +250,10 @@ def run(args: argparse.Namespace) -> None:
         raise ValueError("--time-scale must be positive")
     if args.action_delay_steps < 0:
         raise ValueError("--action-delay-steps must be non-negative")
+    if abs(args.vx) > MAX_DEPLOY_VX:
+        raise ValueError(f"--vx must be within +/-{MAX_DEPLOY_VX:.1f} m/s")
+    if abs(args.yaw_rate) > MAX_DEPLOY_YAW_RATE:
+        raise ValueError(f"--yaw-rate must be within +/-{MAX_DEPLOY_YAW_RATE:.1f} rad/s")
     torch.set_num_threads(args.torch_threads)
     model = mujoco.MjModel.from_xml_path(str(args.model))
     data = mujoco.MjData(model)
@@ -270,7 +274,7 @@ def run(args: argparse.Namespace) -> None:
 
     actor = load_actor(args.checkpoint)
     command = TerminalCommand(
-        torch.tensor((args.vx, args.vy, args.yaw_rate, args.height, args.roll), dtype=torch.float32)
+        torch.tensor((args.vx, 0.0, args.yaw_rate, NOMINAL_HEIGHT, NOMINAL_ROLL), dtype=torch.float32)
     )
     last_action = torch.zeros(6, dtype=torch.float32)
     reset(model, data, joint_qpos_ids)

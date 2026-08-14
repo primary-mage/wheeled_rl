@@ -1,0 +1,38 @@
+--- git commit ---
+51b4fb54184fa7c0a406643129953a8b26136230
+
+
+--- git status ---
+On branch release/3.0.0-beta2
+Your branch is up to date with 'origin/release/3.0.0-beta2'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   source/isaaclab_tasks/isaaclab_tasks/manager_based/locomotion/velocity/config/go2/agents/rsl_rl_ppo_cfg.py
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	Assets/
+	run_play.sh
+	run_train.sh
+
+no changes added to commit (use "git add" and/or "git commit -a") 
+
+
+--- git diff ---
+diff --git a/source/isaaclab_tasks/isaaclab_tasks/manager_based/locomotion/velocity/config/go2/agents/rsl_rl_ppo_cfg.py b/source/isaaclab_tasks/isaaclab_tasks/manager_based/locomotion/velocity/config/go2/agents/rsl_rl_ppo_cfg.py
+index fa979f08df..4502060f62 100644
+--- a/source/isaaclab_tasks/isaaclab_tasks/manager_based/locomotion/velocity/config/go2/agents/rsl_rl_ppo_cfg.py
++++ b/source/isaaclab_tasks/isaaclab_tasks/manager_based/locomotion/velocity/config/go2/agents/rsl_rl_ppo_cfg.py
+@@ -11,8 +11,8 @@ from isaaclab_rl.rsl_rl import RslRlMLPModelCfg, RslRlOnPolicyRunnerCfg, RslRlPp
+ @configclass
+ class UnitreeGo2RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
+     num_steps_per_env = 24
+-    max_iterations = 1500
+-    save_interval = 50
++    max_iterations = 3000
++    save_interval = 150
+     experiment_name = "unitree_go2_rough"
+     actor = RslRlMLPModelCfg(
+         hidden_dims=[512, 256, 128],

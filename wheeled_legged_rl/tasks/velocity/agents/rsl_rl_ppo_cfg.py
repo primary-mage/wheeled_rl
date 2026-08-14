@@ -1,15 +1,17 @@
-"""RSL-RL PPO configs for the wheeled-legged robot stages."""
+"""RSL-RL PPO settings for the P1-P6 deployment curriculum."""
 
 from isaaclab.utils.configclass import configclass
 from isaaclab_rl.rsl_rl import RslRlMLPModelCfg, RslRlOnPolicyRunnerCfg, RslRlPpoAlgorithmCfg
 
 
 @configclass
-class WheeledLeggedStage1PPORunnerCfg(RslRlOnPolicyRunnerCfg):
+class WheeledLeggedP1PPORunnerCfg(RslRlOnPolicyRunnerCfg):
+    """Shared architecture and optimizer for all sequential curriculum phases."""
+
     num_steps_per_env = 24
-    max_iterations = 500
+    max_iterations = 1200
     save_interval = 50
-    experiment_name = "wheeled_legged_stage1"
+    experiment_name = "wheeled_legged_p1_stationary"
     actor = RslRlMLPModelCfg(
         hidden_dims=[256, 128, 64],
         activation="elu",
@@ -34,39 +36,56 @@ class WheeledLeggedStage1PPORunnerCfg(RslRlOnPolicyRunnerCfg):
 
 
 @configclass
-class WheeledLeggedStage2PPORunnerCfg(WheeledLeggedStage1PPORunnerCfg):
-    def __post_init__(self):
-        super().__post_init__()
-        self.max_iterations = 800
-        self.experiment_name = "wheeled_legged_stage2"
-
-@configclass
-class WheeledLeggedStage3PPORunnerCfg(WheeledLeggedStage2PPORunnerCfg):
-    def __post_init__(self):
-        super().__post_init__()
-        self.max_iterations = 400
-        self.experiment_name = "wheeled_legged_stage3_stance"
-
-
-@configclass
-class WheeledLeggedStage4PPORunnerCfg(WheeledLeggedStage3PPORunnerCfg):
+class WheeledLeggedP2PPORunnerCfg(WheeledLeggedP1PPORunnerCfg):
     def __post_init__(self):
         super().__post_init__()
         self.max_iterations = 1200
-        self.experiment_name = "wheeled_legged_stage4"
+        self.experiment_name = "wheeled_legged_p2_low_speed"
 
 
 @configclass
-class WheeledLeggedStage5PPORunnerCfg(WheeledLeggedStage4PPORunnerCfg):
+class WheeledLeggedP3PPORunnerCfg(WheeledLeggedP2PPORunnerCfg):
     def __post_init__(self):
         super().__post_init__()
-        self.max_iterations = 1200
-        self.experiment_name = "wheeled_legged_stage5"
+        self.max_iterations = 1600
+        self.experiment_name = "wheeled_legged_p3_transients"
 
 
 @configclass
-class WheeledLeggedStage6PPORunnerCfg(WheeledLeggedStage5PPORunnerCfg):
+class WheeledLeggedP4APPORunnerCfg(WheeledLeggedP3PPORunnerCfg):
     def __post_init__(self):
         super().__post_init__()
-        self.max_iterations = 1200
-        self.experiment_name = "wheeled_legged_stage6"
+        self.max_iterations = 1400
+        self.experiment_name = "wheeled_legged_p4a_0p6mps"
+
+
+@configclass
+class WheeledLeggedP4BPPORunnerCfg(WheeledLeggedP4APPORunnerCfg):
+    def __post_init__(self):
+        super().__post_init__()
+        self.max_iterations = 1400
+        self.experiment_name = "wheeled_legged_p4b_0p8mps"
+
+
+@configclass
+class WheeledLeggedP4CPPORunnerCfg(WheeledLeggedP4BPPORunnerCfg):
+    def __post_init__(self):
+        super().__post_init__()
+        self.max_iterations = 1800
+        self.experiment_name = "wheeled_legged_p4c_1p0mps"
+
+
+@configclass
+class WheeledLeggedP5PPORunnerCfg(WheeledLeggedP4CPPORunnerCfg):
+    def __post_init__(self):
+        super().__post_init__()
+        self.max_iterations = 1800
+        self.experiment_name = "wheeled_legged_p5_yaw"
+
+
+@configclass
+class WheeledLeggedP6PPORunnerCfg(WheeledLeggedP5PPORunnerCfg):
+    def __post_init__(self):
+        super().__post_init__()
+        self.max_iterations = 2400
+        self.experiment_name = "wheeled_legged_p6_robust"
